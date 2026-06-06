@@ -12,50 +12,23 @@ window.Physics = (function () {
     currentSpeed = CONFIG.BALL.BASE_SPEED;
   }
 
-  function update(targetAngle, pipeRadius, dt) {
-    // 重力恢复力：将球拉回底部
-    var gravityTorque = -Math.sin(angle) * CONFIG.PHYSICS.GRAVITY;
+  // 连续角度运动：重力 + 输入扭矩 + 阻尼，无级变速
+  function updateLane(targetAngle, pipeRadius, dt) {
+    // 重力：始终将球拉向底部（角度 0）
+    var gravityTorque = -Math.sin(angle) * CONFIG.PHYSICS.GRAVITY * 0.35;
 
-    // 输入扭矩（降低灵敏度，滑动更自然）
+    // 输入扭矩：推向目标角度
     var angleDiff = targetAngle - angle;
-    var inputTorque = angleDiff * 10;
+    var inputTorque = angleDiff * 12;
 
-    // 阻尼（降低使滑动更流畅）
-    var dampingTorque = -angularVelocity * 5;
+    // 阻尼：防止振荡
+    var dampingTorque = -angularVelocity * CONFIG.PHYSICS.DAMPING;
 
-    // 离心力
-    var centrifugalTorque = 0;
-    if (window.PipeSystem && window.PipeSystem.getCurvatureAt) {
-      var curvature = window.PipeSystem.getCurvatureAt(0);
-      centrifugalTorque = -curvature * CONFIG.PHYSICS.CENTRIFUGAL * currentSpeed;
-    }
-
-    var angularAccel = gravityTorque + inputTorque + dampingTorque + centrifugalTorque;
-
-    angularVelocity += angularAccel * dt;
-    angularVelocity = THREE.MathUtils.clamp(angularVelocity, -8, 8);
+    angularVelocity += (gravityTorque + inputTorque + dampingTorque) * dt;
+    angularVelocity = THREE.MathUtils.clamp(angularVelocity, -10, 10);
     angle += angularVelocity * dt;
     angle = THREE.MathUtils.clamp(angle, -Math.PI * 0.8, Math.PI * 0.8);
 
-    var ballR = CONFIG.BALL.RADIUS;
-    var effectiveR = pipeRadius - ballR;
-    var x = Math.sin(angle) * effectiveR;
-    var y = -Math.cos(angle) * effectiveR;
-
-    return { x: x, y: y, angle: angle, speed: currentSpeed };
-  }
-
-  // 车道模式：平滑移动到目标车道角度
-  function updateLane(targetLaneAngle, pipeRadius, dt) {
-    // 重力拉回中间（targetLaneAngle 由输入控制）
-    var diff = targetLaneAngle - angle;
-    var speed = 8; // 车道间移动速度
-    angle += diff * Math.min(speed * dt, 1);
-    // 也应用重力（松开时 targetLaneAngle=0，自然回到中间）
-    if (Math.abs(diff) < 0.01) {
-      var gravityPull = -Math.sin(angle) * CONFIG.PHYSICS.GRAVITY * dt * 0.5;
-      angle += gravityPull;
-    }
     return angle;
   }
 
@@ -64,5 +37,5 @@ window.Physics = (function () {
   function getSpeed() { return currentSpeed; }
   function setAngle(a) { angle = a; angularVelocity = 0; }
 
-  return { init: init, update: update, getAngle: getAngle, setSpeed: setSpeed, getSpeed: getSpeed, setAngle: setAngle, updateLane: updateLane };
+  return { init: init, getAngle: getAngle, setSpeed: setSpeed, getSpeed: getSpeed, setAngle: setAngle, updateLane: updateLane };
 })();

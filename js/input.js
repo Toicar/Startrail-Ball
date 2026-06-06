@@ -1,18 +1,15 @@
-// input.js — 陀螺仪 + 触屏，输出目标车道索引
+// input.js — 陀螺仪 + 触屏 + 键盘，输出连续目标角度
 window.Input = (function () {
   'use strict';
 
-  var LANES = CONFIG.LANES.ANGLES;
-  var targetLane = 3;           // 默认车道 = 中间 (索引3 = 0°)
+  var ANGLE_RANGE = Math.PI * 0.75; // ±135°
+  var targetAngle = 0;
   var useGyro = false;
   var gyroAvailable = false;
   var touchActive = false;
   var touchStartX = 0;
-  var lastLaneSwitch = 0;
-  var SWITCH_COOLDOWN = 0.25;   // 车道切换冷却（秒）
-  var MOVE_THRESHOLD = 50;      // 触屏移动阈值（像素）
 
-  // 陀螺仪映射
+  // --- 陀螺仪：gamma 连续映射到角度 ---
   function onDeviceOrientation(e) {
     if (e.gamma === null) return;
     gyroAvailable = true;
@@ -21,12 +18,10 @@ window.Input = (function () {
       document.body.classList.add('gyro-mode');
     }
     var raw = THREE.MathUtils.clamp(e.gamma / 45, -1, 1);
-    // 映射到车道：-1→0, 0→3, +1→6
-    var idx = Math.round((raw + 1) / 2 * (LANES.length - 1));
-    targetLane = THREE.MathUtils.clamp(idx, 0, LANES.length - 1);
+    targetAngle = raw * ANGLE_RANGE;
   }
 
-  // 触屏：检测方向切换车道
+  // --- 触屏：虚拟摇杆，水平偏移 → 连续角度 ---
   function onTouchStart(e) {
     if (useGyro) return;
     e.preventDefault();
@@ -39,43 +34,37 @@ window.Input = (function () {
     if (!touchActive || useGyro) return;
     e.preventDefault();
     var dx = e.touches[0].clientX - touchStartX;
-    var now = performance.now() / 1000;
-    if (Math.abs(dx) > MOVE_THRESHOLD && now - lastLaneSwitch > SWITCH_COOLDOWN) {
-      if (dx > 0) targetLane = Math.min(targetLane + 1, LANES.length - 1);
-      else targetLane = Math.max(targetLane - 1, 0);
-      touchStartX = e.touches[0].clientX;
-      lastLaneSwitch = now;
-    }
+    var halfWidth = window.innerWidth * 0.45;
+    var normalized = THREE.MathUtils.clamp(dx / halfWidth, -1, 1);
+    targetAngle = -normalized * ANGLE_RANGE;
   }
 
   function onTouchEnd() {
     touchActive = false;
-    targetLane = 3; // 松手回到中间
+    targetAngle = 0;
     document.body.classList.remove('touching');
   }
 
-  // 键盘
+  // --- 键盘：按住连续移动，松手回中 ---
   var keysDown = {};
-  var lastKeySwitch = 0;
   window.addEventListener('keydown', function (e) {
     keysDown[e.key] = true;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      var now = performance.now() / 1000;
-      if (now - lastKeySwitch > SWITCH_COOLDOWN) {
-        if (e.key === 'ArrowLeft') targetLane = Math.max(targetLane - 1, 0);
-        else targetLane = Math.min(targetLane + 1, LANES.length - 1);
-        lastKeySwitch = now;
-      }
-    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
   });
   window.addEventListener('keyup', function (e) {
     keysDown[e.key] = false;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      targetLane = 3; // 松手回中
-    }
   });
 
+  // 每帧调用：键盘持续输入 + 松手回中
+  function update(dt) {
+    if (useGyro || touchActive) return;
+    var desired = 0;
+    if (keysDown['ArrowLeft']) desired = ANGLE_RANGE;
+    else if (keysDown['ArrowRight']) desired = -ANGLE_RANGE;
+    targetAngle += (desired - targetAngle) * Math.min(6 * dt, 1);
+  }
+
+  // --- 初始化 ---
   function init() {
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -93,13 +82,18 @@ window.Input = (function () {
     window.addEventListener('touchend', onTouchEnd);
     window.addEventListener('touchcancel', onTouchEnd);
     setTimeout(function () {
-      if (!gyroAvailable) showToast && showToast('倾斜操控不可用，已切换摇杆模式');
+      if (!gyroAvailable && window.showToast) showToast('倾斜操控不可用，已切换摇杆模式');
     }, 3000);
   }
 
-  function getTargetLane() { return targetLane; }
-  function isGyroAvailable() { return gyroAvailable; }
-  function resetLane() { targetLane = 3; }
+  function getTargetAngle() { return targetAngle; }
+  function resetAngle() { targetAngle = 0; }
 
-  return { init: init, getTargetLane: getTargetLane, resetLane: resetLane, isGyroAvailable: isGyroAvailable };
+  return {
+    init: init,
+    update: update,
+    getTargetAngle: getTargetAngle,
+    resetAngle: resetAngle,
+    isGyroAvailable: function () { return gyroAvailable; }
+  };
 })();

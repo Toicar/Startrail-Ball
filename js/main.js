@@ -202,8 +202,11 @@
     STATE.difficultyLevel = 0;
     STATE._cpPlaced = {};
     STATE._pipeRotZ = 0;
+    PipeSystem.group.rotation.z = 0;
+    PipeSystem.ringGroup.rotation.z = 0;
+    if (World.group) World.group.rotation.z = 0;
 
-    Input.resetLane();
+    Input.resetAngle();
     Physics.init();
     // ⚠️ 关键顺序：先清空 World，再生成管道（管道生成会调用 World.populateSegment）
     World.reset();
@@ -257,20 +260,20 @@
       STATE.speed = finalSpeed;
       STATE.distance += finalSpeed * dt;
 
-      // 车道输入：目标车道索引 → 目标角度
-      var targetLaneIdx = Input.getTargetLane();
-      var laneAngle = CONFIG.LANES.ANGLES[targetLaneIdx];
+      // 连续角度输入（键盘/触屏持续更新）
+      Input.update(dt);
+      var targetAngle = Input.getTargetAngle();
       var pipeR = PipeSystem.getPipeRadiusAt(0);
 
-      // 球平滑移动到目标车道角度
-      var smoothAngle = Physics.updateLane(laneAngle, pipeR, dt);
+      // 球平滑移动到目标角度（连续角度，无级变速）
+      var smoothAngle = Physics.updateLane(targetAngle, pipeR, dt);
       STATE.ballAngle = smoothAngle;
       var ballX = Math.sin(smoothAngle) * (pipeR - CONFIG.BALL.RADIUS);
       var ballY = -Math.cos(smoothAngle) * (pipeR - CONFIG.BALL.RADIUS);
       Ball.setPosition(ballX, ballY, 0);
 
-      // 管道旋转到目标车道角度（锁死跟随）
-      var targetRotZ = -laneAngle;
+      // 管道旋转跟随球角度
+      var targetRotZ = -smoothAngle;
       if (STATE._pipeRotZ === undefined) STATE._pipeRotZ = 0;
       STATE._pipeRotZ += (targetRotZ - STATE._pipeRotZ) * Math.min(dt * 5, 1);
       PipeSystem.group.rotation.z = STATE._pipeRotZ;
@@ -310,9 +313,6 @@
         STATE.activeBuffs[keys[k]] -= dt;
         if (STATE.activeBuffs[keys[k]] <= 0) {
           delete STATE.activeBuffs[keys[k]];
-          if (keys[k] === 'shield' && !STATE.hasShield) {
-            Ball.setShieldActive(false);
-          }
         }
       }
 

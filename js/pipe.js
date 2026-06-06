@@ -73,7 +73,7 @@ window.PipeSystem = (function () {
       return 'curveRight';
     }
     if (rand < 0.25) return 'straight';
-    if (rand < 0.45) return rand < 0.5 ? 'curveLeft' : 'curveRight';
+    if (rand < 0.45) return Math.random() < 0.5 ? 'curveLeft' : 'curveRight';
     if (rand < 0.6) return 'narrow';
     if (rand < 0.75) return 'wide';
     return rand < 0.9 ? 'curveUp' : 'curveRight';
@@ -264,6 +264,29 @@ window.PipeSystem = (function () {
     getPipeRadiusAt: getPipeRadiusAt, getCurvatureAt: getCurvatureAt,
     group: group, ringGroup: ringGroup, segments: segments,
     reset: function () {
+      // 释放段资源
+      for (var s = 0; s < segments.length; s++) {
+        var seg = segments[s];
+        seg.mesh.geometry.dispose();
+        seg.mesh.material.dispose();
+        // 清理子 mesh（线框等）
+        for (var c = seg.mesh.children.length - 1; c >= 0; c--) {
+          var child = seg.mesh.children[c];
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        }
+        if (seg.rings) {
+          for (var k = 0; k < seg.rings.length; k++) {
+            seg.rings[k].geometry.dispose();
+            seg.rings[k].material.dispose();
+          }
+        }
+      }
+      // 清理残留光环
+      for (var er = 0; er < edgeRings.length; er++) {
+        edgeRings[er].ring.geometry.dispose();
+        edgeRings[er].ring.material.dispose();
+      }
       while (group.children.length > 0) group.remove(group.children[0]);
       while (ringGroup.children.length > 0) ringGroup.remove(ringGroup.children[0]);
       segments = [];

@@ -45,6 +45,8 @@ window.Effects = (function () {
       p.position.z -= 0.15; // 向后飘
       if (p.userData.life <= 0 || trailParticles.length > MAX_TRAIL) {
         trailGroup.remove(p);
+        p.geometry.dispose();
+        p.material.dispose();
         trailParticles.splice(i, 1);
       }
     }
@@ -86,6 +88,8 @@ window.Effects = (function () {
       p.material.opacity = Math.max(0, p.userData.life);
       if (p.userData.life <= 0) {
         burstGroup.remove(p);
+        p.geometry.dispose();
+        p.material.dispose();
         burstParticles.splice(i, 1);
       }
     }
