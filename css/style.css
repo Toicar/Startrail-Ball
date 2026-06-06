@@ -23,6 +23,20 @@ button, input {
   height: 100%;
 }
 
+#game-container.damage-shake {
+  animation: damageShake 320ms ease both;
+}
+
+@keyframes damageShake {
+  0% { transform: translate3d(0, 0, 0); filter: none; }
+  15% { transform: translate3d(-7px, 4px, 0); filter: saturate(1.25); }
+  30% { transform: translate3d(6px, -3px, 0); }
+  45% { transform: translate3d(-5px, -2px, 0); }
+  60% { transform: translate3d(4px, 3px, 0); }
+  80% { transform: translate3d(-2px, 1px, 0); }
+  100% { transform: translate3d(0, 0, 0); filter: none; }
+}
+
 #game-canvas {
   display: block;
   width: 100%;
@@ -77,6 +91,11 @@ button, input {
   gap: 8px;
 }
 
+.hud-stat-group {
+  flex-wrap: wrap;
+  max-width: calc(100vw - 112px);
+}
+
 .hud-chip,
 .hud-best-chip,
 .hud-lives,
@@ -105,6 +124,28 @@ button, input {
   font-size: 20px;
   font-weight: 800;
   text-shadow: 0 0 10px rgba(255, 211, 77, 0.65);
+}
+
+.hud-boost-chip {
+  display: none;
+  min-height: 30px;
+  padding: 3px 8px;
+  color: #071120;
+  font-size: 12px;
+  font-weight: 900;
+  border-color: rgba(255, 227, 111, 0.82);
+  background: linear-gradient(135deg, #ffe36f, #34f5c5);
+  box-shadow: 0 0 18px rgba(52, 245, 197, 0.32);
+}
+
+.hud-boost-chip .hud-buff-text {
+  color: #071120;
+  font-size: 12px;
+}
+
+.hud-boost-chip strong {
+  min-width: 34px;
+  text-align: right;
 }
 
 .hud-icon {
@@ -200,6 +241,21 @@ button, input {
   align-items: center;
   gap: 8px;
   margin: 0 16px;
+}
+
+.hud-metrics {
+  display: flex;
+  gap: 10px;
+  margin: -2px 16px 5px;
+  color: #9fb2d8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hud-metrics strong {
+  color: #ffffff;
+  font-size: 12px;
+  text-shadow: 0 0 8px rgba(87, 232, 255, 0.42);
 }
 
 .hud-speed-label {
@@ -552,6 +608,11 @@ button, input {
 
   .hud-speed-wrap {
     margin: 0 32px;
+  }
+
+  .hud-metrics {
+    margin-left: 32px;
+    margin-right: 32px;
   }
 
   .hud-buffs {

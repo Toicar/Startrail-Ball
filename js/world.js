@@ -302,7 +302,12 @@ window.World = (function () {
     else if (segIndex % 12 === 7 || buffRoll > 0.93) placeItem('shield', zStart + len * (0.4 + Math.random() * 0.4), pickLane(false), pipeRadius);
     if (segIndex % 11 === 5 || Math.random() < 0.06) placeItem('scoreX2', zStart + len * Math.random(), pickLane(false), pipeRadius);
 
-    if (difficultyLevel >= 2 && Math.random() < 0.35) {
+    var rotatingBarrierChance = 0;
+    if (difficultyLevel >= 3) rotatingBarrierChance = 0.45;
+    else if (difficultyLevel >= 2) rotatingBarrierChance = 0.35;
+    else if (difficultyLevel >= 1) rotatingBarrierChance = 0.18;
+
+    if (rotatingBarrierChance > 0 && Math.random() < rotatingBarrierChance) {
       placeItem('rotatingBarrier', zStart + len * (0.3 + Math.random() * 0.4), pickLane(true, 1), pipeRadius);
     }
 
@@ -319,9 +324,12 @@ window.World = (function () {
   }
 
   function checkSpeedBoostCollision(item, ballAngle, ballZ) {
-    if (angleDiff(ballAngle, item.angle) > LANE_HALF_ANGLE) return false;
+    var laneRadius = item.radius - CONFIG.BALL.RADIUS;
+    var lateralDistance = angleDiff(ballAngle, item.angle) * laneRadius;
+    var halfWidth = item.radius * LANE_HALF_ANGLE + CONFIG.BALL.RADIUS * 0.5;
+    if (lateralDistance > halfWidth) return false;
     var halfStrip = item.stripLength / 2;
-    return Math.abs(ballZ - item.z) <= halfStrip + CONFIG.BALL.RADIUS * 0.35;
+    return Math.abs(ballZ - item.z) <= halfStrip + CONFIG.BALL.RADIUS * 0.5;
   }
 
   function checkCollisions(ballX, ballY, ballZ) {
@@ -407,7 +415,7 @@ window.World = (function () {
 
       if (item.type === 'rotatingBarrier') {
         var t = window.STATE ? window.STATE.elapsedTime : 0;
-        var newAngle = item.baseAngle + t * 1.8 + item.z * 0.35;
+        var newAngle = item.baseAngle + t * 0.9 + item.z * 0.175;
         item.angle = newAngle;
         setLanePosition(item, item.z);
         if (item.mesh.userData && item.mesh.userData.billboard) {

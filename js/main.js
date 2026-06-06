@@ -137,6 +137,28 @@
   }
   window.showToast = showToast;
 
+  var lastHapticAt = 0;
+  function haptic(pattern, minGap) {
+    if (!window.navigator || !window.navigator.vibrate) return;
+    var now = (window.performance && performance.now) ? performance.now() : Date.now();
+    if (minGap && now - lastHapticAt < minGap) return;
+    lastHapticAt = now;
+    try { window.navigator.vibrate(pattern); } catch (e) {}
+  }
+
+  var screenShakeTimer = 0;
+  function screenShake() {
+    var container = document.getElementById('game-container');
+    if (!container) return;
+    container.classList.remove('damage-shake');
+    void container.offsetWidth;
+    container.classList.add('damage-shake');
+    clearTimeout(screenShakeTimer);
+    screenShakeTimer = setTimeout(function () {
+      container.classList.remove('damage-shake');
+    }, 340);
+  }
+
   // --- 碰撞处理 ---
   function triggerBonusGold() {
     for (var i = 0; i < 15; i++) {
@@ -146,8 +168,10 @@
 
   function takeDamage() {
     if (STATE.invincible > 0) return;
+    haptic([70, 35, 95], 250);
+    screenShake();
     STATE.lives--;
-    STATE.invincible = 1.5; // 1.5 秒无敌时间
+    STATE.invincible = 3.0; // 3s invincible window after damage.
     Ball.setInvincible(true);
     if (STATE.lives <= 0) {
       die();
@@ -178,29 +202,35 @@
         else if (STATE.combo >= 5) multiplier = CONFIG.SCORE.COMBO_MULTIPLIERS[0];
         var points = CONFIG.SCORE.COIN_BASE * multiplier;
         if (STATE.activeBuffs.scoreDouble > 0) points *= CONFIG.BUFFS.SCORE_DOUBLE.multiplier;
+        if (STATE.activeBuffs.speedBoost > 0) points *= 2;
         STATE.score += points;
+        haptic(10, 55);
         if (window.AudioFX) AudioFX.coinCollect();
         if (window.Effects) Effects.spawnBurst(ballThreePos, 0xffd740);
         break;
 
       case 'speedBoost':
         STATE.activeBuffs.speedBoost = CONFIG.BUFFS.SPEED_BOOST.duration;
+        haptic([22, 18, 35], 120);
         if (window.AudioFX) AudioFX.powerUp();
         break;
 
       case 'magnet':
         STATE.activeBuffs.magnet = CONFIG.BUFFS.MAGNET.duration;
+        haptic([18, 18, 45], 120);
         if (window.AudioFX) AudioFX.powerUp();
         break;
 
       case 'shield':
         STATE.hasShield = true;
         Ball.setShieldActive(true);
+        haptic([28, 24, 45], 120);
         if (window.AudioFX) AudioFX.powerUp();
         break;
 
       case 'scoreX2':
         STATE.activeBuffs.scoreDouble = CONFIG.BUFFS.SCORE_DOUBLE.duration;
+        haptic([18, 18, 30, 18, 42], 120);
         if (window.AudioFX) AudioFX.powerUp();
         break;
 
@@ -210,6 +240,7 @@
         if (STATE.hasShield) {
           STATE.hasShield = false;
           Ball.setShieldActive(false);
+          haptic([35, 20, 55], 180);
         } else {
           if (window.AudioFX) AudioFX.hitObstacle();
           takeDamage();
@@ -222,6 +253,7 @@
         if (STATE.hasShield) {
           STATE.hasShield = false;
           Ball.setShieldActive(false);
+          haptic([35, 20, 55], 180);
         } else {
           if (window.AudioFX) AudioFX.hitObstacle();
           takeDamage();
@@ -230,11 +262,13 @@
 
       case 'bonusGate':
         triggerBonusGold();
+        haptic([24, 20, 24, 20, 55], 150);
         if (window.AudioFX) AudioFX.powerUp();
         break;
 
       case 'checkpoint':
         STATE.checkpointDistance = STATE.distance;
+        haptic([35, 25, 35], 150);
         if (window.AudioFX) AudioFX.checkpoint();
         break;
     }
@@ -268,6 +302,7 @@
     World.reset();
     PipeSystem.reset();
     PipeSystem.init();
+    Ball.setInvincible(false);
     Ball.setShieldActive(false);
 
     Screens.hide();
@@ -360,6 +395,7 @@
         if (STATE.invincible <= 0) {
           STATE.invincible = 0;
           Ball.setInvincible(false);
+          if (STATE.hasShield) Ball.setShieldActive(true);
         }
       }
 
