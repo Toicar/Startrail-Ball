@@ -57,7 +57,6 @@ window.HUD = (function () {
     if (buffs.magnet > 0) html += '<span class="hud-buff active">🧲 ' + buffs.magnet.toFixed(1) + 's</span>';
     if (state.hasShield) html += '<span class="hud-buff active">🛡️</span>';
     if (buffs.scoreDouble > 0) html += '<span class="hud-buff active">✨ ' + buffs.scoreDouble.toFixed(1) + 's</span>';
-    if (buffs.slow > 0) html += '<span class="hud-buff active" style="background:rgba(255,82,82,0.5);">🐌</span>';
     buffsEl.innerHTML = html;
   }
 
