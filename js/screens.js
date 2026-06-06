@@ -1,4 +1,4 @@
-// screens.js — 开始/死亡/暂停画面 + 设置面板
+// screens.js - start, pause, death, and settings overlays
 window.Screens = (function () {
   'use strict';
 
@@ -15,11 +15,29 @@ window.Screens = (function () {
     overlay.classList.remove('screen-visible');
   }
 
+  function itemPreviewHTML() {
+    var items = [
+      ['item_coin.png', '金币'],
+      ['item_magnet.png', '磁铁'],
+      ['item_shield.png', '护盾'],
+      ['item_double.png', '双倍'],
+      ['item_spike.png', '地刺'],
+      ['item_barrier.png', '旋转障碍'],
+      ['item_bonus_gate.png', '奖励门'],
+      ['item_checkpoint.png', '检查点']
+    ];
+    var html = '<div class="item-preview" aria-label="道具预览">';
+    for (var i = 0; i < items.length; i++) {
+      html += '<span class="item-preview-cell"><img src="./image/' + items[i][0] + '" alt="' + items[i][1] + '"></span>';
+    }
+    return html + '</div>';
+  }
+
   function buildSettingsHTML() {
     var curOri = (window.Input && Input.getOrientation) ? Input.getOrientation() : 'auto';
     var curSens = (window.Input && Input.getGyroSensitivity) ? Input.getGyroSensitivity() : CONFIG.GYRO.SENSITIVITY_DEFAULT;
 
-    var oriLabels = { auto: '🔄 自动', portrait: '📱 竖屏', landscape: '🖥 横屏' };
+    var oriLabels = { auto: '自动', portrait: '竖屏', landscape: '横屏' };
     var oriBtns = '';
     ['auto', 'portrait', 'landscape'].forEach(function (m) {
       var active = m === curOri ? ' active' : '';
@@ -60,15 +78,16 @@ window.Screens = (function () {
   function showStart() {
     var bestScore = 0;
     try { bestScore = parseInt(localStorage.getItem('star_tunnel_best') || '0'); } catch (e) {}
-    var bestHTML = bestScore > 0 ? '<p class="start-best">🏆 最高分: ' + bestScore + '</p>' : '';
+    var bestHTML = bestScore > 0 ? '<p class="start-best">最高分 ' + bestScore + '</p>' : '';
 
     show(
       '<div class="start-screen">' +
         '<h1 class="start-title">星轨穿梭</h1>' +
         '<p class="start-sub">Star Tunnel Rush</p>' +
+        itemPreviewHTML() +
         bestHTML +
         '<div class="set-panel">' + buildSettingsHTML() + '</div>' +
-        '<p class="start-hint">倾斜手机控制球体 · 或触摸屏幕移动</p>' +
+        '<p class="start-hint">星河管道已开启。</p>' +
         '<button class="start-btn" onclick="window.startGame()">开始游戏</button>' +
       '</div>'
     );
@@ -79,14 +98,14 @@ window.Screens = (function () {
     if (isNewBest) {
       try { localStorage.setItem('star_tunnel_best', score); } catch (e) {}
     }
-    var newBestHTML = isNewBest ? '<p class="modal-highlight">🎉 新纪录！</p>' : '';
+    var newBestHTML = isNewBest ? '<p class="modal-highlight">新纪录</p>' : '';
     show(
       '<div class="modal-card">' +
-        '<h2 class="modal-title death">撞毁！</h2>' +
-        '<p class="modal-score">🪙 ' + Math.floor(score) + '</p>' +
+        '<h2 class="modal-title death">航线中断</h2>' +
+        '<div class="modal-score"><img src="./image/item_coin.png" alt="金币"><span>' + Math.floor(score) + '</span></div>' +
         newBestHTML +
-        '<p class="modal-stat">🏆 最高分: ' + Math.max(score, bestScore) + '</p>' +
-        '<p class="modal-stat-sub">📏 ' + Math.floor(distance) + 'm | ⏱ ' + Math.floor(elapsedTime) + 's</p>' +
+        '<p class="modal-stat">最高分 ' + Math.max(score, bestScore) + '</p>' +
+        '<p class="modal-stat-sub">' + Math.floor(distance) + 'm · ' + Math.floor(elapsedTime) + 's</p>' +
         '<button class="btn-primary" onclick="window.startGame()">再来一次</button>' +
       '</div>'
     );

@@ -11,6 +11,10 @@ window.Input = (function () {
   var gyroSensitivity = CONFIG.GYRO.SENSITIVITY_DEFAULT;
   var isLandscape = false;
   var orientationMode = 'auto'; // 'auto' | 'portrait' | 'landscape'
+  var keyboardActive = false;
+  var KEYBOARD_RANGE_MUL = 0.52;
+  var KEYBOARD_RESPONSE = 3.0;
+  var KEYBOARD_RETURN = 4.0;
 
   // --- 陀螺仪：横竖屏自适应 + 灵敏度 ---
   function onDeviceOrientation(e) {
@@ -66,12 +70,19 @@ window.Input = (function () {
   function update(dt) {
     // 触屏模式下跳过键盘，其余情况键盘始终可用
     if (touchActive) return;
-    var desired = 0;
-    if (keysDown['ArrowLeft']) desired = ANGLE_RANGE;
-    else if (keysDown['ArrowRight']) desired = -ANGLE_RANGE;
+    var desired = null;
+    if (keysDown['ArrowLeft']) desired = ANGLE_RANGE * KEYBOARD_RANGE_MUL;
+    else if (keysDown['ArrowRight']) desired = -ANGLE_RANGE * KEYBOARD_RANGE_MUL;
     // 有键盘输入时覆盖陀螺仪，无输入时保持陀螺仪角度不变
-    if (desired !== 0) {
-      targetAngle += (desired - targetAngle) * Math.min(6 * dt, 1);
+    if (desired !== null) {
+      keyboardActive = true;
+      targetAngle += (desired - targetAngle) * Math.min(KEYBOARD_RESPONSE * dt, 1);
+    } else if (keyboardActive && !useGyro) {
+      targetAngle += (0 - targetAngle) * Math.min(KEYBOARD_RETURN * dt, 1);
+      if (Math.abs(targetAngle) < 0.01) {
+        targetAngle = 0;
+        keyboardActive = false;
+      }
     }
   }
 
@@ -142,7 +153,7 @@ window.Input = (function () {
   }
 
   function getTargetAngle() { return targetAngle; }
-  function resetAngle() { targetAngle = 0; }
+  function resetAngle() { targetAngle = 0; keyboardActive = false; }
 
   return {
     init: init, update: update,

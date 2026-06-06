@@ -1,62 +1,87 @@
-// hud.js — HUD 叠加层
+// hud.js - in-game HUD overlay
 window.HUD = (function () {
   'use strict';
 
   var overlay = document.getElementById('hud-overlay');
-  var speedFill, scoreEl, comboEl, buffsEl, livesEl;
+  var speedFill, scoreValueEl, comboEl, buffsEl, livesEl;
+
+  function icon(src, label) {
+    return '<img class="hud-icon" src="./image/' + src + '" alt="' + label + '">';
+  }
+
+  function renderLives(lives, maxLives) {
+    var html = '';
+    for (var i = 0; i < maxLives; i++) {
+      html += '<span class="life-cell' + (i < lives ? ' active' : '') + '"></span>';
+    }
+    livesEl.innerHTML = html;
+  }
 
   function init() {
     var best = '0';
     try { best = localStorage.getItem('star_tunnel_best') || '0'; } catch (e) {}
+
     overlay.innerHTML =
       '<div class="hud-top">' +
         '<div class="hud-stat-group">' +
-          '<div id="hud-lives" class="hud-chip">❤️❤️❤️</div>' +
-          '<div id="hud-score" class="hud-chip hud-score">🪙 0</div>' +
+          '<div id="hud-lives" class="hud-lives" aria-label="生命值"></div>' +
+          '<div class="hud-chip hud-score">' +
+            icon('item_coin.png', '金币') +
+            '<span id="hud-score-value">0</span>' +
+          '</div>' +
         '</div>' +
         '<div class="hud-top-right">' +
-          '<div id="hud-best" class="hud-best-chip">🏆 ' + best + '</div>' +
-          '<button id="hud-pause-btn" class="hud-pause-btn" type="button" aria-label="暂停" onclick="window.pauseGame()">⏸</button>' +
+          '<div class="hud-best-chip"><span>BEST</span><strong id="hud-best-value">' + best + '</strong></div>' +
+          '<button id="hud-pause-btn" class="hud-pause-btn" type="button" aria-label="暂停" onclick="window.pauseGame()">' +
+            '<span></span><span></span>' +
+          '</button>' +
         '</div>' +
       '</div>' +
-      '<div class="hud-speed-bar"><div id="hud-speed-fill" class="hud-speed-fill" style="width:0%;"></div></div>' +
+      '<div class="hud-speed-wrap">' +
+        '<div class="hud-speed-label">SPEED</div>' +
+        '<div class="hud-speed-bar"><div id="hud-speed-fill" class="hud-speed-fill" style="width:0%;"></div></div>' +
+      '</div>' +
       '<div id="hud-buffs" class="hud-buffs"></div>' +
-      '<div id="hud-combo"></div>';
+      '<div id="hud-combo" class="hud-combo"></div>';
+
     speedFill = document.getElementById('hud-speed-fill');
-    scoreEl = document.getElementById('hud-score');
+    scoreValueEl = document.getElementById('hud-score-value');
     comboEl = document.getElementById('hud-combo');
     buffsEl = document.getElementById('hud-buffs');
     livesEl = document.getElementById('hud-lives');
+    renderLives(3, 3);
     overlay.style.display = 'none';
   }
 
   function show() { overlay.style.display = 'block'; }
   function hide() { overlay.style.display = 'none'; }
 
+  function buffHTML(className, img, label, timeText) {
+    return '<span class="hud-buff ' + className + '">' +
+      (img ? icon(img, label) : '<span class="hud-buff-text">' + label + '</span>') +
+      (timeText ? '<strong>' + timeText + '</strong>' : '') +
+    '</span>';
+  }
+
   function update(state) {
-    if (!scoreEl) return;
-    scoreEl.textContent = '🪙 ' + Math.floor(state.score);
+    if (!scoreValueEl) return;
+    scoreValueEl.textContent = Math.floor(state.score);
+    renderLives(state.lives, state.maxLives);
 
-    var hearts = '';
-    for (var h = 0; h < state.maxLives; h++) {
-      hearts += h < state.lives ? '❤️' : '🖤';
-    }
-    livesEl.textContent = hearts;
-
-    var speedPct = Math.floor((state.speed / CONFIG.BALL.MAX_SPEED) * 100);
+    var speedPct = Math.max(0, Math.min(100, Math.floor((state.speed / CONFIG.BALL.MAX_SPEED) * 100)));
     speedFill.style.width = speedPct + '%';
 
-    if (state.combo >= 15) comboEl.textContent = '🔥 COMBO ×5!';
-    else if (state.combo >= 10) comboEl.textContent = '⚡ COMBO ×3!';
-    else if (state.combo >= 5) comboEl.textContent = '✨ COMBO ×2';
+    if (state.combo >= 15) comboEl.textContent = 'COMBO x5';
+    else if (state.combo >= 10) comboEl.textContent = 'COMBO x3';
+    else if (state.combo >= 5) comboEl.textContent = 'COMBO x2';
     else comboEl.textContent = '';
 
     var buffs = state.activeBuffs;
     var html = '';
-    if (buffs.speedBoost > 0) html += '<span class="hud-buff active">⚡ ' + buffs.speedBoost.toFixed(1) + 's</span>';
-    if (buffs.magnet > 0) html += '<span class="hud-buff active">🧲 ' + buffs.magnet.toFixed(1) + 's</span>';
-    if (state.hasShield) html += '<span class="hud-buff active">🛡️</span>';
-    if (buffs.scoreDouble > 0) html += '<span class="hud-buff active">✨ ' + buffs.scoreDouble.toFixed(1) + 's</span>';
+    if (buffs.speedBoost > 0) html += buffHTML('boost', '', 'BOOST', buffs.speedBoost.toFixed(1) + 's');
+    if (buffs.magnet > 0) html += buffHTML('magnet', 'item_magnet.png', '磁铁', buffs.magnet.toFixed(1) + 's');
+    if (state.hasShield) html += buffHTML('shield', 'item_shield.png', '护盾', '');
+    if (buffs.scoreDouble > 0) html += buffHTML('double', 'item_double.png', '双倍', buffs.scoreDouble.toFixed(1) + 's');
     buffsEl.innerHTML = html;
   }
 
