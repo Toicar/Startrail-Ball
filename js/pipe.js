@@ -34,18 +34,12 @@ window.PipeSystem = (function () {
     '  vec3 nebula = mix(uColor1, uColor2, vUv.y);',
     '  nebula += vec3(0.35, 0.08, 0.55) * pow(max(0.0, sin(vUv.x * 6.28 + uTime * 0.15)), 3.0) * 0.25;',
     '  nebula += vec3(0.15, 0.05, 0.35) * pow(max(0.0, cos(vUv.y * 4.0 - uTime * 0.1)), 2.0) * 0.2;',
-    '  float star = step(0.998, random(floor(vUv * 90.0 + uTime * 0.03)));',
-    '  float twinkle = random(vUv + uTime * 0.07) * 0.6 + 0.4;',
-    '  vec3 starColor = vec3(0.9, 0.92, 1.0) * twinkle;',
-    '  float bigStar = step(0.9995, random(floor(vUv * 24.0)));',
-    '  star = max(star, bigStar * 1.8);',
     '  float vertLine = smoothstep(0.93, 1.0, 1.0 - abs(fract(vUv.x * 12.0) - 0.5) * 2.0);',
     '  float horizLine = smoothstep(0.94, 1.0, 1.0 - abs(fract(vUv.y * 0.8) - 0.5) * 2.0);',
     '  float gridLine = max(vertLine, horizLine);',
     '  vec3 gridColor = vec3(0.0, 0.92, 1.0) * gridLine;',
     '  vec3 trackBase = vec3(0.04, 0.12, 0.35);',
-    '  vec3 color = mix(nebula, starColor, star);',
-    '  color = mix(color, trackBase, 0.35);',
+    '  vec3 color = mix(nebula, trackBase, 0.35);',
     '  color += gridColor * 1.26;',
     '  float edge = pow(abs(vUv.y - 0.5) * 2.0, 2.0);',
     '  color += vec3(0.0, 0.7, 1.0) * edge * 0.105;',
@@ -168,14 +162,17 @@ window.PipeSystem = (function () {
     curveDistance = 0;
     curveStrength = 0;
     for (var i = 0; i < CONFIG.PIPE.VISIBLE_SEGMENTS; i++) {
-      var zCenter = i * CONFIG.PIPE.SEGMENT_LENGTH + CONFIG.PIPE.SEGMENT_LENGTH / 2;
+      var zCenter = i * CONFIG.PIPE.SEGMENT_LENGTH;
       var seg = createPipeSegment(zCenter, radius, CONFIG.PIPE.SEGMENT_LENGTH, 0, null);
       segments.push(seg);
       group.add(seg.mesh);
       if (window.World) {
+        var spawnStart = Math.max(2, zCenter - CONFIG.PIPE.SEGMENT_LENGTH / 2);
+        var spawnEnd = zCenter + CONFIG.PIPE.SEGMENT_LENGTH / 2;
+        if (spawnEnd <= spawnStart) continue;
         World.populateSegment(
-          zCenter - CONFIG.PIPE.SEGMENT_LENGTH / 2,
-          zCenter + CONFIG.PIPE.SEGMENT_LENGTH / 2,
+          spawnStart,
+          spawnEnd,
           radius, 0
         );
       }

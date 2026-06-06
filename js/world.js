@@ -17,12 +17,11 @@ window.World = (function () {
   var ITEM_DEFS = {
     coin:             { color: 0xffc107, asset: 'item_coin.png',       size: 0.5,  width: 1.18, height: 1.18, spin: 1.0 },
     magnet:           { color: 0xff4081, asset: 'item_magnet.png',     size: 0.58, width: 1.42, height: 1.16, spin: 0.35 },
-    shield:           { color: 0xffaa00, asset: 'item_shield.png',     size: 0.62, width: 1.42, height: 1.3,  spin: 0.25 },
+    shield:           { color: 0xffaa00, asset: 'item_shield.png',     size: 0.62, width: 1.5,  height: 1.5,  spin: 0.25 },
     scoreX2:          { color: 0xea80fc, asset: 'item_double.png',     size: 0.62, width: 1.42, height: 1.42, spin: 0.45 },
-    spike:            { color: 0xff00cc, asset: 'item_spike.png',      size: 0.7,  width: 1.42, height: 1.42, hazard: true },
+    spike:            { color: 0xff00cc, asset: 'item_spike.png',      size: 0.7,  width: 1.5,  height: 1.5,  hazard: true },
     rotatingBarrier:  { color: 0xff6d00, asset: 'item_barrier.png',    size: 0.78, width: 1.55, height: 1.55, hazard: true, spin: 2.4 },
-    bonusGate:        { color: 0x00e676, asset: 'item_bonus_gate.png', size: 0.95, width: 1.72, height: 1.72, spin: 0.6 },
-    checkpoint:       { color: 0x448aff, asset: 'item_checkpoint.png', size: 0.78, width: 1.5,  height: 1.5,  spin: 0.2 },
+    bonusGate:        { color: 0x00e676, asset: 'item_bonus_gate.png', size: 0.95, width: 1.55, height: 1.55, spin: 0.6 },
   };
 
   function getBallLane() {
@@ -325,12 +324,6 @@ window.World = (function () {
       placeItem('bonusGate', zStart + len * (0.3 + Math.random() * 0.4), 0, pipeRadius);
     }
 
-    if (window.STATE && !window.STATE._cpPlaced) window.STATE._cpPlaced = {};
-    var cpKey = Math.floor((window.STATE ? window.STATE.distance : 0) / (45 * CONFIG.BALL.BASE_SPEED));
-    if (window.STATE && window.STATE._cpPlaced && !window.STATE._cpPlaced[cpKey]) {
-      placeItem('checkpoint', zStart + len * 0.4, 0, pipeRadius);
-      window.STATE._cpPlaced[cpKey] = true;
-    }
   }
 
   function checkSpeedBoostCollision(item, ballAngle, ballZ) {
@@ -450,7 +443,7 @@ window.World = (function () {
         faceCamera(item.mesh, item.visualSpin);
         continue;
       }
-      if (['magnet', 'shield', 'scoreX2', 'bonusGate', 'checkpoint'].indexOf(item.type) >= 0) {
+      if (['magnet', 'shield', 'scoreX2', 'bonusGate'].indexOf(item.type) >= 0) {
         var t3 = window.STATE ? window.STATE.elapsedTime : 0;
         setLanePosition(item, item.z + Math.sin(t3 * 2.5 + item.angle * 3) * 0.2);
         if (item.mesh.userData && item.mesh.userData.billboard) {

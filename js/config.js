@@ -57,10 +57,10 @@ const CONFIG = {
 
   // 摄像机（按屏幕比例动态调整）
   CAMERA: {
-    PORTRAIT_FOV: 68,
+    PORTRAIT_FOV: 72,
     LANDSCAPE_FOV: 52,
-    PORTRAIT_Z: -10,            // 竖屏拉远避免球出画
-    LANDSCAPE_Z: -7,
+    PORTRAIT_Z: -12.5,          // 竖屏拉远避免球出画
+    LANDSCAPE_Z: -8.8,
     PORTRAIT_ANGLE_MAX: 1.0,
     LANDSCAPE_ANGLE_MAX: 1.0,
   },

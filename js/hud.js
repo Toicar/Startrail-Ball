@@ -4,6 +4,9 @@ window.HUD = (function () {
 
   var overlay = document.getElementById('hud-overlay');
   var speedFill, scoreValueEl, comboEl, buffsEl, livesEl, boostChipEl, boostTimeEl, distanceEl, timeEl;
+  var floatLayer, comboFloatEl;
+  var coinFloatItems = [];
+  var projectedPrompt = new THREE.Vector3();
 
   function assetSrc(src) {
     return (window.AssetData && window.AssetData.images && window.AssetData.images[src]) || ('./image/' + src);
@@ -54,7 +57,10 @@ window.HUD = (function () {
         '<div class="hud-speed-bar"><div id="hud-speed-fill" class="hud-speed-fill" style="width:0%;"></div></div>' +
       '</div>' +
       '<div id="hud-buffs" class="hud-buffs"></div>' +
-      '<div id="hud-combo" class="hud-combo"></div>';
+      '<div id="hud-combo" class="hud-combo"></div>' +
+      '<div id="hud-float-layer" class="hud-float-layer">' +
+        '<div id="hud-combo-float" class="hud-combo-float"></div>' +
+      '</div>';
 
     speedFill = document.getElementById('hud-speed-fill');
     scoreValueEl = document.getElementById('hud-score-value');
@@ -65,6 +71,8 @@ window.HUD = (function () {
     boostTimeEl = document.getElementById('hud-boost-time');
     distanceEl = document.getElementById('hud-distance-value');
     timeEl = document.getElementById('hud-time-value');
+    floatLayer = document.getElementById('hud-float-layer');
+    comboFloatEl = document.getElementById('hud-combo-float');
     renderLives(3, 3);
     overlay.style.display = 'none';
   }
@@ -96,10 +104,7 @@ window.HUD = (function () {
     if (distanceEl) distanceEl.textContent = Math.floor(state.distance) + 'm';
     if (timeEl) timeEl.textContent = formatTime(state.elapsedTime);
 
-    if (state.combo >= 15) comboEl.textContent = 'COMBO x5';
-    else if (state.combo >= 10) comboEl.textContent = 'COMBO x3';
-    else if (state.combo >= 5) comboEl.textContent = 'COMBO x2';
-    else comboEl.textContent = '';
+    comboEl.textContent = '';
 
     var buffs = state.activeBuffs;
     var boostTime = buffs.speedBoost || 0;
@@ -114,5 +119,87 @@ window.HUD = (function () {
     buffsEl.innerHTML = html;
   }
 
-  return { init: init, show: show, hide: hide, update: update };
+  function projectPromptAnchor() {
+    if (!window.camera) return null;
+    var z = 8.5;
+    var offset = (window.PipeSystem && PipeSystem.getCurveOffsetAt) ? PipeSystem.getCurveOffsetAt(z) : { x: 0, y: 0 };
+    projectedPrompt.set(offset.x, offset.y, z).project(window.camera);
+    if (projectedPrompt.z < -1 || projectedPrompt.z > 1) {
+      return { x: window.innerWidth * 0.5, y: window.innerHeight * 0.48 };
+    }
+    return {
+      x: (projectedPrompt.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-projectedPrompt.y * 0.5 + 0.5) * window.innerHeight
+    };
+  }
+
+  function getComboLabel(combo) {
+    if (combo >= 15) return 'COMBO x5';
+    if (combo >= 10) return 'COMBO x3';
+    if (combo >= 5) return 'COMBO x2';
+    return '';
+  }
+
+  function spawnCoinText(points) {
+    if (!floatLayer) return;
+    var el = document.createElement('div');
+    el.className = 'hud-coin-float';
+    el.textContent = '+' + Math.floor(points);
+    floatLayer.appendChild(el);
+    var lane = Math.min(coinFloatItems.length, 3);
+    coinFloatItems.push({
+      el: el,
+      age: 0,
+      life: 0.92,
+      offset: lane * 18,
+      xOffset: lane % 2 === 0 ? 0 : (lane === 1 ? -24 : 24)
+    });
+    while (coinFloatItems.length > 4) {
+      var old = coinFloatItems.shift();
+      if (old.el && old.el.parentNode) old.el.parentNode.removeChild(old.el);
+    }
+  }
+
+  function updateFloating(state, ballPos, dt) {
+    if (!floatLayer || !comboFloatEl) return;
+    var pos = projectPromptAnchor();
+    if (!pos || !state || state.phase !== 'playing') {
+      comboFloatEl.classList.remove('visible');
+      for (var h = 0; h < coinFloatItems.length; h++) coinFloatItems[h].el.style.opacity = 0;
+      return;
+    }
+
+    var safeX = Math.max(72, Math.min(window.innerWidth - 72, pos.x));
+    var safeY = Math.max(96, Math.min(window.innerHeight - 92, pos.y));
+    var comboText = getComboLabel(state.combo);
+
+    if (comboText) {
+      comboFloatEl.textContent = comboText;
+      comboFloatEl.style.left = safeX + 'px';
+      comboFloatEl.style.top = (safeY - 16) + 'px';
+      comboFloatEl.classList.add('visible');
+    } else {
+      comboFloatEl.classList.remove('visible');
+    }
+
+    dt = Math.min(dt || 0.016, 0.05);
+    for (var i = coinFloatItems.length - 1; i >= 0; i--) {
+      var item = coinFloatItems[i];
+      item.age += dt;
+      var t = Math.min(1, item.age / item.life);
+      var y = comboText
+        ? safeY + 24 + item.offset * 0.45 - t * 20
+        : safeY + 8 + item.offset * 0.45 - t * 28;
+      item.el.style.left = (safeX + item.xOffset) + 'px';
+      item.el.style.top = y + 'px';
+      item.el.style.opacity = Math.max(0, 1 - t);
+      item.el.style.transform = 'translate(-50%, -50%) scale(' + (1 + 0.18 * (1 - t)) + ')';
+      if (t >= 1) {
+        if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
+        coinFloatItems.splice(i, 1);
+      }
+    }
+  }
+
+  return { init: init, show: show, hide: hide, update: update, spawnCoinText: spawnCoinText, updateFloating: updateFloating };
 })();

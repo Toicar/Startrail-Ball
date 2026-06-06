@@ -13,7 +13,6 @@
     ballAngle: 0,
     activeBuffs: {},
     hasShield: false,
-    checkpointDistance: 0,
     elapsedTime: 0,
     difficultyLevel: 0,
     lives: 3,        // 生命值
@@ -24,9 +23,9 @@
 
   // --- Three.js 初始化 ---
   const canvas = document.getElementById('game-canvas');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x020818);
+  renderer.setClearColor(0x020818, 0);
   renderer.shadowMap.enabled = false;
 
   const scene = new THREE.Scene();
@@ -68,9 +67,7 @@
       '  vec3 col = mix(vec3(0.01, 0.02, 0.08), vec3(0.12, 0.04, 0.22), dir.y * 0.5 + 0.5);',
       '  col += vec3(0.25, 0.08, 0.4) * pow(max(0.0, sin(dir.x * 3.0 + t)), 4.0) * 0.4;',
       '  col += vec3(0.15, 0.05, 0.3) * pow(max(0.0, cos(dir.z * 2.5 - t * 0.7)), 3.0) * 0.35;',
-      '  float star = step(0.997, random(floor(dir.xy * 120.0 + t)));',
-      '  col += vec3(1.0) * star * 0.8;',
-      '  gl_FragColor = vec4(col, 1.0);',
+      '  gl_FragColor = vec4(col, 0.34);',
       '}'
     ].join('\n');
     var geo = new THREE.SphereGeometry(55, 32, 32);
@@ -79,6 +76,7 @@
       fragmentShader: bgFS,
       uniforms: { uTime: { value: 0 } },
       side: THREE.BackSide,
+      transparent: true,
       depthWrite: false,
     });
     var mesh = new THREE.Mesh(geo, mat);
@@ -98,7 +96,10 @@
     if (aspect < 0.6) {
       // 竖屏：拉大 FOV + 拉远相机，限制角度防出画
       camera.fov = CONFIG.CAMERA.PORTRAIT_FOV;
-      camera.position.z = CONFIG.CAMERA.PORTRAIT_Z;
+      var safeHalfWidth = CONFIG.PIPE.BASE_RADIUS + CONFIG.BALL.RADIUS + 0.65;
+      var fovRad = THREE.MathUtils.degToRad(camera.fov);
+      var neededDepth = safeHalfWidth / (Math.tan(fovRad * 0.5) * Math.max(aspect, 0.36));
+      camera.position.z = -Math.max(Math.abs(CONFIG.CAMERA.PORTRAIT_Z), neededDepth);
       Input.setAngleRange(CONFIG.CAMERA.PORTRAIT_ANGLE_MAX);
     } else if (aspect > 1.5) {
       // 横屏
@@ -108,7 +109,7 @@
     } else {
       // 中间比例（如桌面浏览器）
       camera.fov = 55;
-      camera.position.z = -8;
+      camera.position.z = -9.2;
       Input.setAngleRange(1.0);
     }
     camera.updateProjectionMatrix();
@@ -282,6 +283,7 @@
         haptic(10, 55);
         if (window.AudioFX) AudioFX.coinCollect();
         if (window.Effects) Effects.spawnBurst(ballThreePos, 0xffd740);
+        if (window.HUD && HUD.spawnCoinText) HUD.spawnCoinText(points);
         break;
 
       case 'speedBoost':
@@ -341,11 +343,6 @@
         if (window.AudioFX) AudioFX.powerUp();
         break;
 
-      case 'checkpoint':
-        STATE.checkpointDistance = STATE.distance;
-        haptic([35, 25, 35], 150);
-        if (window.AudioFX) AudioFX.checkpoint();
-        break;
     }
   }
 
@@ -362,7 +359,6 @@
     STATE.hasShield = false;
     STATE.lives = STATE.maxLives;
     STATE.invincible = 0;
-    STATE.checkpointDistance = 0;
     STATE.elapsedTime = 0;
     STATE.difficultyLevel = 0;
     STATE._cpPlaced = {};
@@ -390,6 +386,18 @@
     STATE.phase = 'playing';
     Screens.hide();
     if (window.AudioFX) { AudioFX.resume(); AudioFX.resumeBGM(); }
+  };
+
+  window.goToMainMenu = function () {
+    STATE.phase = 'start';
+    if (window.AudioFX) AudioFX.pauseBGM();
+    if (window.HUD) HUD.hide();
+    if (window.Input) Input.resetAngle();
+    if (window.Ball) {
+      Ball.setInvincible(false);
+      Ball.setShieldActive(false);
+    }
+    Screens.showStart();
   };
 
   window.pauseGame = function () {
@@ -518,7 +526,10 @@
       }
 
       // HUD
-      if (window.HUD) HUD.update(STATE);
+      if (window.HUD) {
+        HUD.update(STATE);
+        if (HUD.updateFloating) HUD.updateFloating(STATE, Ball.getPosition(), dt);
+      }
     }
 
     var visTime = STATE.elapsedTime || performance.now() * 0.001;
