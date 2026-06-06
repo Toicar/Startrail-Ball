@@ -1,0 +1,9 @@
+.superpowers/
+docs/
+.claude/
+*.zip
+link.txt
+ref1.png
+ref2.png
+*.md
+!CLAUDE.md

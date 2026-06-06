@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>星轨穿梭</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <!-- WebGL 兼容检测 -->
+  <script>
+    (function(){
+      try {
+        var c = document.createElement('canvas');
+        var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+        if (!gl) {
+          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-size:18px;text-align:center;padding:20px;background:#000;font-family:sans-serif;">您的浏览器不支持 3D 渲染<br><br>请使用抖音 App 扫码体验</div>';
+        }
+      } catch(e) {
+        document.body.innerHTML = '<div style="color:#fff;text-align:center;padding-top:40vh;font-family:sans-serif;">哎呀，出错了，请重启试试吧~</div>';
+      }
+    })();
+  </script>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+    <div id="hud-overlay"></div>
+    <div id="screen-overlay"></div>
+  </div>
+  <script src="./js/lib/three.min.js"></script>
+  <script src="./js/config.js"></script>
+  <script src="./js/input.js"></script>
+  <script src="./js/ball.js"></script>
+  <script src="./js/pipe.js"></script>
+  <script src="./js/physics.js"></script>
+  <script src="./js/world.js"></script>
+  <script src="./js/effects.js"></script>
+  <script src="./js/audio.js"></script>
+  <script src="./js/hud.js"></script>
+  <script src="./js/screens.js"></script>
+  <script src="./js/main.js"></script>
+</body>
+</html>
