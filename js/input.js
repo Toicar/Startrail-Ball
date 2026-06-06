@@ -12,9 +12,9 @@ window.Input = (function () {
   var isLandscape = false;
   var orientationMode = 'auto'; // 'auto' | 'portrait' | 'landscape'
   var keyboardActive = false;
-  var KEYBOARD_RANGE_MUL = 0.52;
-  var KEYBOARD_RESPONSE = 3.0;
-  var KEYBOARD_RETURN = 4.0;
+  var KEYBOARD_RANGE_MUL = 0.64;
+  var KEYBOARD_RESPONSE = 4.2;
+  var KEYBOARD_RETURN = 5.0;
 
   // --- 陀螺仪：横竖屏自适应 + 灵敏度 ---
   function onDeviceOrientation(e) {

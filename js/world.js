@@ -116,7 +116,8 @@ window.World = (function () {
   function getItemTexture(asset) {
     if (itemTextureCache[asset]) return itemTextureCache[asset];
     if (!textureLoader) textureLoader = new THREE.TextureLoader();
-    var texture = textureLoader.load(ITEM_ASSET_ROOT + asset);
+    var src = (window.AssetData && window.AssetData.images && window.AssetData.images[asset]) || (ITEM_ASSET_ROOT + asset);
+    var texture = textureLoader.load(src);
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = true;
@@ -196,6 +197,19 @@ window.World = (function () {
     return createFallbackMesh(def);
   }
 
+  function getPipeOffset(z) {
+    if (window.PipeSystem && PipeSystem.getCurveOffsetAt) return PipeSystem.getCurveOffsetAt(z);
+    return { x: 0, y: 0 };
+  }
+
+  function setLanePosition(item, z) {
+    var r = item.radius - 0.3;
+    var offset = getPipeOffset(z);
+    item.mesh.position.x = Math.sin(item.angle) * r + offset.x;
+    item.mesh.position.y = -Math.cos(item.angle) * r + offset.y;
+    item.mesh.position.z = z;
+  }
+
   function faceCamera(mesh, spin) {
     if (!mesh || !mesh.userData || !mesh.userData.billboard || !window.camera) return;
     group.getWorldQuaternion(tempParentQuat).invert();
@@ -206,8 +220,9 @@ window.World = (function () {
   function placeItem(type, z, angle, pipeRadius) {
     var mesh = createItemMesh(type);
     if (!mesh) return;
+    var offset = getPipeOffset(z);
     var r = pipeRadius - 0.3;
-    mesh.position.set(Math.sin(angle) * r, -Math.cos(angle) * r, z);
+    mesh.position.set(Math.sin(angle) * r + offset.x, -Math.cos(angle) * r + offset.y, z);
     if (mesh.userData && mesh.userData.billboard) faceCamera(mesh, 0);
     else mesh.lookAt(0, 0, z + 2);
     group.add(mesh);
@@ -216,6 +231,9 @@ window.World = (function () {
 
   function placeSpeedBoostStrip(zCenter, angle, pipeRadius, stripLength) {
     var strip = createSpeedBoostStrip(zCenter, angle, pipeRadius, stripLength);
+    var offset = getPipeOffset(zCenter);
+    strip.position.x = offset.x;
+    strip.position.y = offset.y;
     group.add(strip);
     items.push({
       mesh: strip,
@@ -337,8 +355,9 @@ window.World = (function () {
       if (item.type === 'coin' && magnetActive && dist < magnetRange) {
         tempBallLocalPos.copy(ballWorldPos);
         group.worldToLocal(tempBallLocalPos);
-        var pull = THREE.MathUtils.clamp(0.14 + (1 - dist / magnetRange) * 0.18, 0.14, 0.32);
+        var pull = THREE.MathUtils.clamp(0.22 + (1 - dist / magnetRange) * 0.28, 0.22, 0.5);
         item.mesh.position.lerp(tempBallLocalPos, pull);
+        item.magnetized = true;
         item.z = item.mesh.position.z;
         item.mesh.getWorldPosition(itemWorldPos);
         dist = ballWorldPos.distanceTo(itemWorldPos);
@@ -373,9 +392,16 @@ window.World = (function () {
       var item = items[i];
       if (item.collected) { items.splice(i, 1); continue; }
       item.z -= delta;
+      if (item.type === 'coin' && item.magnetized &&
+          (!window.STATE || !window.STATE.activeBuffs || window.STATE.activeBuffs.magnet <= 0)) {
+        item.magnetized = false;
+      }
 
       if (item.type === 'speedBoost') {
         item.mesh.position.z = item.z;
+        var boostOffset = getPipeOffset(item.z);
+        item.mesh.position.x = boostOffset.x;
+        item.mesh.position.y = boostOffset.y;
         continue;
       }
 
@@ -383,10 +409,7 @@ window.World = (function () {
         var t = window.STATE ? window.STATE.elapsedTime : 0;
         var newAngle = item.baseAngle + t * 1.8 + item.z * 0.35;
         item.angle = newAngle;
-        var r = item.radius - 0.3;
-        item.mesh.position.x = Math.sin(newAngle) * r;
-        item.mesh.position.y = -Math.cos(newAngle) * r;
-        item.mesh.position.z = item.z;
+        setLanePosition(item, item.z);
         if (item.mesh.userData && item.mesh.userData.billboard) {
           item.visualSpin += (ITEM_DEFS[item.type].spin || 2.4) * dt;
           faceCamera(item.mesh, item.visualSpin);
@@ -402,15 +425,16 @@ window.World = (function () {
           item.mesh.rotation.y += 0.05;
           item.mesh.rotation.x += 0.03;
         }
-        item.mesh.position.z = item.z;
         var t2 = window.STATE ? window.STATE.elapsedTime : 0;
-        item.mesh.position.z += Math.sin(t2 * 3 + item.angle * 5) * 0.15;
+        var coinZ = item.z + Math.sin(t2 * 3 + item.angle * 5) * 0.15;
+        if (!item.magnetized) setLanePosition(item, coinZ);
+        else item.mesh.position.z = coinZ;
         faceCamera(item.mesh, item.visualSpin);
         continue;
       }
       if (['magnet', 'shield', 'scoreX2', 'bonusGate', 'checkpoint'].indexOf(item.type) >= 0) {
         var t3 = window.STATE ? window.STATE.elapsedTime : 0;
-        item.mesh.position.z = item.z + Math.sin(t3 * 2.5 + item.angle * 3) * 0.2;
+        setLanePosition(item, item.z + Math.sin(t3 * 2.5 + item.angle * 3) * 0.2);
         if (item.mesh.userData && item.mesh.userData.billboard) {
           item.visualSpin += (ITEM_DEFS[item.type].spin || 0.25) * dt;
           faceCamera(item.mesh, item.visualSpin);

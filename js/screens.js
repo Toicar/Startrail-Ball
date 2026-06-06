@@ -15,6 +15,10 @@ window.Screens = (function () {
     overlay.classList.remove('screen-visible');
   }
 
+  function assetSrc(src) {
+    return (window.AssetData && window.AssetData.images && window.AssetData.images[src]) || ('./image/' + src);
+  }
+
   function itemPreviewHTML() {
     var items = [
       ['item_coin.png', '金币'],
@@ -28,7 +32,7 @@ window.Screens = (function () {
     ];
     var html = '<div class="item-preview" aria-label="道具预览">';
     for (var i = 0; i < items.length; i++) {
-      html += '<span class="item-preview-cell"><img src="./image/' + items[i][0] + '" alt="' + items[i][1] + '"></span>';
+      html += '<span class="item-preview-cell"><img src="' + assetSrc(items[i][0]) + '" alt="' + items[i][1] + '"></span>';
     }
     return html + '</div>';
   }
@@ -102,7 +106,7 @@ window.Screens = (function () {
     show(
       '<div class="modal-card">' +
         '<h2 class="modal-title death">航线中断</h2>' +
-        '<div class="modal-score"><img src="./image/item_coin.png" alt="金币"><span>' + Math.floor(score) + '</span></div>' +
+        '<div class="modal-score"><img src="' + assetSrc('item_coin.png') + '" alt="金币"><span>' + Math.floor(score) + '</span></div>' +
         newBestHTML +
         '<p class="modal-stat">最高分 ' + Math.max(score, bestScore) + '</p>' +
         '<p class="modal-stat-sub">' + Math.floor(distance) + 'm · ' + Math.floor(elapsedTime) + 's</p>' +

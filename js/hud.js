@@ -5,8 +5,12 @@ window.HUD = (function () {
   var overlay = document.getElementById('hud-overlay');
   var speedFill, scoreValueEl, comboEl, buffsEl, livesEl;
 
+  function assetSrc(src) {
+    return (window.AssetData && window.AssetData.images && window.AssetData.images[src]) || ('./image/' + src);
+  }
+
   function icon(src, label) {
-    return '<img class="hud-icon" src="./image/' + src + '" alt="' + label + '">';
+    return '<img class="hud-icon" src="' + assetSrc(src) + '" alt="' + label + '">';
   }
 
   function renderLives(lives, maxLives) {
