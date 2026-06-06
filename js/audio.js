@@ -1,14 +1,21 @@
-// audio.js — Web Audio API 程序化音效合成
+// audio.js - Web Audio sound effects + MP3 background music
 window.AudioFX = (function () {
   'use strict';
 
   var ctx = null;
   var enabled = true;
-  var bgmTimer = null;
+  var bgmAudio = null;
+  var bgmPausedAt = 0;
+  var bgmStarted = false;
+  var BGM_SRC = './215775__primeobsession__techno-hook.mp3';
 
   function init() {
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
+      bgmAudio = new Audio(BGM_SRC);
+      bgmAudio.loop = true;
+      bgmAudio.preload = 'auto';
+      bgmAudio.volume = 0.38;
     } catch (e) {
       enabled = false;
     }
@@ -35,6 +42,16 @@ window.AudioFX = (function () {
     } catch (e) { /* ignore */ }
   }
 
+  function playBGMFrom(time) {
+    if (!enabled || !bgmAudio) return;
+    try {
+      if (time !== undefined) bgmAudio.currentTime = time;
+      var p = bgmAudio.play();
+      if (p && p.catch) p.catch(function () {});
+      bgmStarted = true;
+    } catch (e) { /* ignore */ }
+  }
+
   function coinCollect() {
     playTone(880, 0.1, 'sine', 0.1, true);
     setTimeout(function () { playTone(1320, 0.08, 'sine', 0.06, true); }, 50);
@@ -58,38 +75,49 @@ window.AudioFX = (function () {
   }
 
   function startBGM() {
-    if (!enabled || !ctx) return;
+    if (!enabled) return;
     stopBGM();
+    bgmPausedAt = 0;
+    playBGMFrom(0);
+  }
 
-    function pulse() {
-      if (!ctx || ctx.state === 'closed') return;
-      var st = window.STATE;
-      if (!st || st.phase !== 'playing') return;
+  function pauseBGM() {
+    if (!bgmAudio || bgmAudio.paused) return;
+    try {
+      bgmPausedAt = bgmAudio.currentTime || 0;
+      bgmAudio.pause();
+    } catch (e) { /* ignore */ }
+  }
 
-      try {
-        var osc = ctx.createOscillator();
-        var g = ctx.createGain();
-        osc.type = 'sine';
-        // 频率随速度变化
-        var pitch = 55 + (st.speed / CONFIG.BALL.MAX_SPEED) * 30;
-        osc.frequency.value = pitch;
-        g.gain.setValueAtTime(0.025, ctx.currentTime);
-        g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.35);
-        osc.connect(g);
-        g.connect(ctx.destination);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.4);
-      } catch (e) { /* ignore */ }
-
-      var interval = 500 - st.speed * 8;
-      bgmTimer = setTimeout(pulse, Math.max(120, interval));
+  function resumeBGM() {
+    if (!bgmStarted) {
+      startBGM();
+      return;
     }
-    pulse();
+    playBGMFrom(bgmPausedAt);
   }
 
   function stopBGM() {
-    if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; }
+    if (bgmAudio) {
+      try {
+        bgmAudio.pause();
+        bgmAudio.currentTime = 0;
+      } catch (e) { /* ignore */ }
+    }
+    bgmPausedAt = 0;
+    bgmStarted = false;
   }
 
-  return { init: init, resume: resume, coinCollect: coinCollect, powerUp: powerUp, hitObstacle: hitObstacle, checkpoint: checkpoint, startBGM: startBGM, stopBGM: stopBGM };
+  return {
+    init: init,
+    resume: resume,
+    coinCollect: coinCollect,
+    powerUp: powerUp,
+    hitObstacle: hitObstacle,
+    checkpoint: checkpoint,
+    startBGM: startBGM,
+    pauseBGM: pauseBGM,
+    resumeBGM: resumeBGM,
+    stopBGM: stopBGM
+  };
 })();

@@ -18,8 +18,8 @@ const CONFIG = {
   },
   // 45° 车道
   LANES: {
-    ANGLES: [-2.356, -1.571, -0.785, 0, 0.785, 1.571, 2.356],  // -135° to +135°, step 45°
-    COUNT: 7,
+    ANGLES: [-3.142, -2.356, -1.571, -0.785, 0, 0.785, 1.571, 2.356],  // full circle, 45deg lanes
+    COUNT: 8,
   },
   // 物理
   PHYSICS: {
@@ -61,8 +61,8 @@ const CONFIG = {
     LANDSCAPE_FOV: 52,
     PORTRAIT_Z: -10,            // 竖屏拉远避免球出画
     LANDSCAPE_Z: -7,
-    PORTRAIT_ANGLE_MAX: 0.55,   // ×π ≈ 99°
-    LANDSCAPE_ANGLE_MAX: 0.75,  // ×π ≈ 135°
+    PORTRAIT_ANGLE_MAX: 1.0,
+    LANDSCAPE_ANGLE_MAX: 1.0,
   },
 };
 

@@ -29,10 +29,14 @@ window.World = (function () {
     var ballAngle = window.STATE ? window.STATE.ballAngle : 0;
     var closest = 0, minDist = 999;
     for (var i = 0; i < LANES.length; i++) {
-      var d = Math.abs(ballAngle - LANES[i]);
+      var d = angleDiff(ballAngle, LANES[i]);
       if (d < minDist) { minDist = d; closest = i; }
     }
     return closest;
+  }
+
+  function wrapLaneIndex(idx) {
+    return ((idx % LANES.length) + LANES.length) % LANES.length;
   }
 
   function pickLane(biasToBall, spread) {
@@ -40,14 +44,18 @@ window.World = (function () {
       return LANES[Math.floor(Math.random() * LANES.length)];
     }
     var ballLane = getBallLane();
-    var offset = Math.floor((Math.random() - 0.5) * (spread || 3));
-    var idx = THREE.MathUtils.clamp(ballLane + offset, 0, LANES.length - 1);
+    var maxSpread = spread || 3;
+    var offset = Math.floor(Math.random() * (maxSpread * 2 + 1)) - maxSpread;
+    var idx = wrapLaneIndex(ballLane + offset);
     return LANES[idx];
   }
 
+  function normalizeAngle(a) {
+    return Math.atan2(Math.sin(a), Math.cos(a));
+  }
+
   function angleDiff(a, b) {
-    var d = Math.abs(a - b);
-    return d > Math.PI ? 2 * Math.PI - d : d;
+    return Math.abs(normalizeAngle(a - b));
   }
 
   function getBoostArrowMaterial() {
@@ -248,7 +256,7 @@ window.World = (function () {
 
   function spawnCoinArc(zCenter, pipeRadius, laneIdx, count, zSpacing) {
     for (var i = 0; i < count; i++) {
-      var angle = LANES[THREE.MathUtils.clamp(laneIdx + i - Math.floor(count / 2), 0, LANES.length - 1)];
+      var angle = LANES[wrapLaneIndex(laneIdx + i - Math.floor(count / 2))];
       placeItem('coin', zCenter + (i - (count - 1) / 2) * zSpacing, angle, pipeRadius);
     }
   }
@@ -265,18 +273,20 @@ window.World = (function () {
     var len = zEnd - zStart;
     var ballLane = getBallLane();
     var segIndex = spawnSerial++;
+    var fairLane = Math.floor(Math.random() * LANES.length);
+    var primaryLane = (segIndex < 2 || Math.random() < 0.42) ? ballLane : fairLane;
 
     if (segIndex < 2 || Math.random() < 0.68) {
       var coinPattern = Math.floor(Math.random() * 3);
       switch (coinPattern) {
         case 0:
-          spawnCoinsOnLane(zStart, zEnd, pipeRadius, ballLane);
+          spawnCoinsOnLane(zStart, zEnd, pipeRadius, primaryLane);
           break;
         case 1:
-          spawnCoinArc(zStart + len * 0.5, pipeRadius, ballLane, 3, 2.15);
+          spawnCoinArc(zStart + len * 0.5, pipeRadius, primaryLane, 3, 2.15);
           break;
         case 2:
-          spawnCoinsOnLane(zStart, zEnd, pipeRadius, THREE.MathUtils.clamp(ballLane + (Math.random() < 0.5 ? -1 : 1), 0, LANES.length - 1), 2);
+          spawnCoinsOnLane(zStart, zEnd, pipeRadius, wrapLaneIndex(primaryLane + (Math.random() < 0.5 ? -1 : 1)), 2);
           break;
       }
     }
@@ -312,7 +322,7 @@ window.World = (function () {
     }
 
     if (segIndex % 14 === 8 || Math.random() < 0.05) {
-      placeItem('bonusGate', zStart + len * (0.3 + Math.random() * 0.4), LANES[3], pipeRadius);
+      placeItem('bonusGate', zStart + len * (0.3 + Math.random() * 0.4), 0, pipeRadius);
     }
 
     if (window.STATE && !window.STATE._cpPlaced) window.STATE._cpPlaced = {};

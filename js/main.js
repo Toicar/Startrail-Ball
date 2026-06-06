@@ -109,7 +109,7 @@
       // 中间比例（如桌面浏览器）
       camera.fov = 55;
       camera.position.z = -8;
-      Input.setAngleRange(0.65);
+      Input.setAngleRange(1.0);
     }
     camera.updateProjectionMatrix();
     Input.applyOrientation();
@@ -157,6 +157,81 @@
     screenShakeTimer = setTimeout(function () {
       container.classList.remove('damage-shake');
     }, 340);
+  }
+
+  function shortestAngleDelta(from, to) {
+    return Math.atan2(Math.sin(to - from), Math.cos(to - from));
+  }
+
+  function normalizeAngle(a) {
+    return Math.atan2(Math.sin(a), Math.cos(a));
+  }
+
+  function smoothStep01(t) {
+    t = THREE.MathUtils.clamp(t, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  function applyTunnelRotation(rotZ) {
+    PipeSystem.group.rotation.z = rotZ;
+    PipeSystem.ringGroup.rotation.z = rotZ;
+    World.group.rotation.z = rotZ;
+  }
+
+  function triggerTunnelFlip(pipeRadius, startAngle) {
+    if (STATE._tunnelFlip) return;
+    var trackRadius = pipeRadius - CONFIG.BALL.RADIUS;
+    var startRot = STATE._pipeRotZ || 0;
+    var flipDirection = startAngle < 0 ? 1 : -1;
+    var rotDelta = flipDirection * Math.PI;
+    var finalRot = startRot + rotDelta;
+    STATE._pipeFlipZ = finalRot;
+    STATE._lastTunnelFlipAt = STATE.elapsedTime;
+    Input.resetAngle();
+    STATE._tunnelFlip = {
+      time: 0,
+      duration: 1.0,
+      startAngle: startAngle,
+      angleDelta: shortestAngleDelta(startAngle, 0),
+      startRot: startRot,
+      rotDelta: rotDelta,
+      finalRot: finalRot,
+      trackRadius: trackRadius
+    };
+  }
+
+  function updateTunnelFlip(dt) {
+    var flip = STATE._tunnelFlip;
+    if (!flip) return null;
+    flip.time += dt;
+    var p = smoothStep01(flip.time / flip.duration);
+    var angle = normalizeAngle(flip.startAngle + flip.angleDelta * p);
+    var rotZ = flip.startRot + flip.rotDelta * p;
+    var ballX = Math.sin(angle) * flip.trackRadius;
+    var ballY = -Math.cos(angle) * flip.trackRadius;
+
+    STATE._pipeRotZ = rotZ;
+    STATE.ballAngle = angle;
+    applyTunnelRotation(rotZ);
+    Ball.setPosition(ballX, ballY, 0);
+    pointLight.position.set(ballX, ballY, 0);
+
+    if (flip.time >= flip.duration) {
+      STATE._tunnelFlip = null;
+      STATE._pipeRotZ = flip.finalRot;
+      STATE._pipeFlipZ = flip.finalRot;
+      STATE.ballAngle = 0;
+      Physics.setAngle(0);
+      Input.resetAngle();
+      applyTunnelRotation(STATE._pipeRotZ);
+      ballX = 0;
+      ballY = -flip.trackRadius;
+      Ball.setPosition(ballX, ballY, 0);
+      pointLight.position.set(ballX, ballY, 0);
+      angle = 0;
+    }
+
+    return { angle: angle, x: ballX, y: ballY };
   }
 
   // --- 碰撞处理 ---
@@ -292,9 +367,10 @@
     STATE.difficultyLevel = 0;
     STATE._cpPlaced = {};
     STATE._pipeRotZ = 0;
-    PipeSystem.group.rotation.z = 0;
-    PipeSystem.ringGroup.rotation.z = 0;
-    if (World.group) World.group.rotation.z = 0;
+    STATE._pipeFlipZ = 0;
+    STATE._lastTunnelFlipAt = -999;
+    STATE._tunnelFlip = null;
+    applyTunnelRotation(0);
 
     Input.resetAngle();
     Physics.init();
@@ -313,11 +389,13 @@
   window.resumeGame = function () {
     STATE.phase = 'playing';
     Screens.hide();
+    if (window.AudioFX) { AudioFX.resume(); AudioFX.resumeBGM(); }
   };
 
   window.pauseGame = function () {
     if (STATE.phase !== 'playing') return;
     STATE.phase = 'paused';
+    if (window.AudioFX) AudioFX.pauseBGM();
     Screens.showPause();
   };
 
@@ -352,35 +430,55 @@
       STATE.distance += finalSpeed * dt;
 
       // 连续角度输入（键盘/触屏持续更新）
-      Input.update(dt);
-      var targetAngle = Input.getTargetAngle();
       var pipeR = PipeSystem.getPipeRadiusAt(0);
+      var flipFrame = null;
+      if (STATE._tunnelFlip) {
+        var ballTrackR = pipeR - CONFIG.BALL.RADIUS;
+        flipFrame = updateTunnelFlip(dt);
+        var smoothAngle = flipFrame.angle;
+        var ballX = flipFrame.x;
+        var ballY = flipFrame.y;
+      } else {
+        Input.update(dt);
+        var targetAngle = Input.getTargetAngle();
 
       // 球平滑移动到目标角度（连续角度，无级变速）
       var smoothAngle = Physics.updateLane(targetAngle, pipeR, dt);
+      var ballTrackR = pipeR - CONFIG.BALL.RADIUS;
+      var ballX = Math.sin(smoothAngle) * ballTrackR;
+      var ballY = -Math.cos(smoothAngle) * ballTrackR;
+      var heightProgress = (ballY + ballTrackR) / (ballTrackR * 2);
+      if (heightProgress > 0.7 && STATE.elapsedTime - (STATE._lastTunnelFlipAt || -999) > 0.35) {
+        triggerTunnelFlip(pipeR, smoothAngle);
+        flipFrame = updateTunnelFlip(0);
+        smoothAngle = flipFrame.angle;
+        ballX = flipFrame.x;
+        ballY = flipFrame.y;
+      }
+      if (!STATE._tunnelFlip) {
       STATE.ballAngle = smoothAngle;
-      var ballX = Math.sin(smoothAngle) * (pipeR - CONFIG.BALL.RADIUS);
-      var ballY = -Math.cos(smoothAngle) * (pipeR - CONFIG.BALL.RADIUS);
       Ball.setPosition(ballX, ballY, 0);
 
       // 管道旋转跟随球角度
-      var targetRotZ = -smoothAngle;
+      var targetRotZ = (STATE._pipeFlipZ || 0) - smoothAngle;
       if (STATE._pipeRotZ === undefined) STATE._pipeRotZ = 0;
-      STATE._pipeRotZ += (targetRotZ - STATE._pipeRotZ) * Math.min(dt * 5, 1);
-      PipeSystem.group.rotation.z = STATE._pipeRotZ;
-      PipeSystem.ringGroup.rotation.z = STATE._pipeRotZ;
-      World.group.rotation.z = STATE._pipeRotZ;
+      STATE._pipeRotZ += shortestAngleDelta(STATE._pipeRotZ, targetRotZ) * Math.min(dt * 5, 1);
+      applyTunnelRotation(STATE._pipeRotZ);
       pointLight.position.set(ballX, ballY, 0);
 
       // 管道滚动
+      }
+      }
       PipeSystem.update(finalSpeed, dt, STATE.elapsedTime, STATE.difficultyLevel, STATE.distance);
 
       // 碰撞检测
       if (window.World) {
         try {
-          var collisions = World.checkCollisions(ballX, ballY, 0);
-          for (var i = 0; i < collisions.length; i++) {
-            handleCollision(collisions[i]);
+          if (!STATE._tunnelFlip) {
+            var collisions = World.checkCollisions(ballX, ballY, 0);
+            for (var i = 0; i < collisions.length; i++) {
+              handleCollision(collisions[i]);
+            }
           }
           World.update(dt, finalSpeed);
           World.clearBehind(-15);
@@ -434,6 +532,7 @@
   document.addEventListener('visibilitychange', function () {
     if (document.hidden && STATE.phase === 'playing') {
       STATE.phase = 'paused';
+      if (window.AudioFX) AudioFX.pauseBGM();
       Screens.showPause();
     }
   });
