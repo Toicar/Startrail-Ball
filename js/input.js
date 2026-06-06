@@ -19,6 +19,8 @@ window.Input = (function () {
       useGyro = true;
       document.body.classList.add('gyro-mode');
     }
+    // 键盘占用时抑制陀螺仪，避免桌面端冲突
+    if (keysDown['ArrowLeft'] || keysDown['ArrowRight']) return;
     // 横屏用 beta（左右倾），竖屏用 gamma
     var tilt = isLandscape ? (e.beta || 0) : (e.gamma || 0);
     if (tilt === null || tilt === undefined) return;
@@ -62,11 +64,15 @@ window.Input = (function () {
   });
 
   function update(dt) {
-    if (useGyro || touchActive) return;
+    // 触屏模式下跳过键盘，其余情况键盘始终可用
+    if (touchActive) return;
     var desired = 0;
     if (keysDown['ArrowLeft']) desired = ANGLE_RANGE;
     else if (keysDown['ArrowRight']) desired = -ANGLE_RANGE;
-    targetAngle += (desired - targetAngle) * Math.min(6 * dt, 1);
+    // 有键盘输入时覆盖陀螺仪，无输入时保持陀螺仪角度不变
+    if (desired !== 0) {
+      targetAngle += (desired - targetAngle) * Math.min(6 * dt, 1);
+    }
   }
 
   // --- 设置接口 ---
