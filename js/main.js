@@ -46,13 +46,32 @@
   scene.add(pointLight);
   window.pointLight = pointLight;
 
-  // --- 自适应尺寸 ---
+  // --- 自适应尺寸（竖屏拉远 FOV、横屏收窄）---
   function resize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    var w = window.innerWidth;
+    var h = window.innerHeight;
     renderer.setSize(w, h);
     camera.aspect = w / h;
+
+    var aspect = w / h;
+    if (aspect < 0.6) {
+      // 竖屏：拉大 FOV + 拉远相机，限制角度防出画
+      camera.fov = CONFIG.CAMERA.PORTRAIT_FOV;
+      camera.position.z = CONFIG.CAMERA.PORTRAIT_Z;
+      Input.setAngleRange(CONFIG.CAMERA.PORTRAIT_ANGLE_MAX);
+    } else if (aspect > 1.5) {
+      // 横屏
+      camera.fov = CONFIG.CAMERA.LANDSCAPE_FOV;
+      camera.position.z = CONFIG.CAMERA.LANDSCAPE_Z;
+      Input.setAngleRange(CONFIG.CAMERA.LANDSCAPE_ANGLE_MAX);
+    } else {
+      // 中间比例（如桌面浏览器）
+      camera.fov = 55;
+      camera.position.z = -8;
+      Input.setAngleRange(0.65);
+    }
     camera.updateProjectionMatrix();
+    Input.applyOrientation();
   }
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', function () { setTimeout(resize, 200); });

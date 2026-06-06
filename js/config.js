@@ -49,6 +49,21 @@ const CONFIG = {
   },
   // 音效
   AUDIO: { enabled: true },
+
+  // 陀螺仪
+  GYRO: {
+    SENSITIVITY_DEFAULT: 0.6,   // 0.3~1.2，1.0=倾斜45°满偏
+  },
+
+  // 摄像机（按屏幕比例动态调整）
+  CAMERA: {
+    PORTRAIT_FOV: 68,
+    LANDSCAPE_FOV: 52,
+    PORTRAIT_Z: -10,            // 竖屏拉远避免球出画
+    LANDSCAPE_Z: -7,
+    PORTRAIT_ANGLE_MAX: 0.55,   // ×π ≈ 99°
+    LANDSCAPE_ANGLE_MAX: 0.75,  // ×π ≈ 135°
+  },
 };
 
 // 根据经过时间获取当前难度等级
