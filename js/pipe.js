@@ -7,6 +7,8 @@ window.PipeSystem = (function () {
   var segments = [];
   var segmentMaterials = [];
   var edgeRings = [];
+  var segmentCreateIndex = 0;
+  var RING_EVERY_N_SEGMENTS = 5; // 原每段 2 环 → 约 10% 密度
 
   // 星空着色器（内联）
   var VERTEX_SHADER = [
@@ -26,20 +28,26 @@ window.PipeSystem = (function () {
     '  return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);',
     '}',
     'void main() {',
-    '  vec3 bgColor = mix(uColor1, uColor2, vUv.y);',
-    '  float star = step(0.998, random(floor(vUv * 80.0 + uTime * 0.03)));',
+    '  vec3 nebula = mix(uColor1, uColor2, vUv.y);',
+    '  nebula += vec3(0.35, 0.08, 0.55) * pow(max(0.0, sin(vUv.x * 6.28 + uTime * 0.15)), 3.0) * 0.25;',
+    '  nebula += vec3(0.15, 0.05, 0.35) * pow(max(0.0, cos(vUv.y * 4.0 - uTime * 0.1)), 2.0) * 0.2;',
+    '  float star = step(0.998, random(floor(vUv * 90.0 + uTime * 0.03)));',
     '  float twinkle = random(vUv + uTime * 0.07) * 0.6 + 0.4;',
-    '  vec3 starColor = vec3(0.9, 0.85, 1.0) * twinkle;',
-    '  float bigStar = step(0.9995, random(floor(vUv * 20.0)));',
+    '  vec3 starColor = vec3(0.9, 0.92, 1.0) * twinkle;',
+    '  float bigStar = step(0.9995, random(floor(vUv * 24.0)));',
     '  star = max(star, bigStar * 1.8);',
-    '  // 网格线 —— 管壁结构线',
-    '  float gridX = abs(fract(vUv.x * 8.0) - 0.5) * 2.0;',
-    '  float gridY = abs(fract(vUv.y * 3.0) - 0.5) * 2.0;',
-    '  float grid = 1.0 - min(gridX, gridY);',
-    '  float line = step(0.96, grid) * 0.08;',
-    '  vec3 color = mix(bgColor, starColor, star);',
-    '  color += line * vec3(0.3, 0.4, 0.8);',
-    '  gl_FragColor = vec4(color, 1.0);',
+    '  float vertLine = smoothstep(0.93, 1.0, 1.0 - abs(fract(vUv.x * 12.0) - 0.5) * 2.0);',
+    '  float horizLine = smoothstep(0.94, 1.0, 1.0 - abs(fract(vUv.y * 0.8) - 0.5) * 2.0);',
+    '  float gridLine = max(vertLine, horizLine);',
+    '  vec3 gridColor = vec3(0.0, 0.92, 1.0) * gridLine;',
+    '  vec3 trackBase = vec3(0.04, 0.12, 0.35);',
+    '  vec3 color = mix(nebula, starColor, star);',
+    '  color = mix(color, trackBase, 0.35);',
+    '  color += gridColor * 1.26;',
+    '  float edge = pow(abs(vUv.y - 0.5) * 2.0, 2.0);',
+    '  color += vec3(0.0, 0.7, 1.0) * edge * 0.105;',
+    '  float alpha = 0.28 + gridLine * 0.385 + edge * 0.084;',
+    '  gl_FragColor = vec4(color, alpha);',
     '}'
   ].join('\n');
 
@@ -48,10 +56,12 @@ window.PipeSystem = (function () {
     fragmentShader: FRAGMENT_SHADER,
     uniforms: {
       uTime: { value: 0 },
-      uColor1: { value: new THREE.Color('#080830') },
-      uColor2: { value: new THREE.Color('#150840') },
+      uColor1: { value: new THREE.Color('#040818') },
+      uColor2: { value: new THREE.Color('#180838') },
     },
     side: THREE.BackSide,
+    transparent: true,
+    depthWrite: false,
   });
 
   // 管道形态
@@ -81,11 +91,11 @@ window.PipeSystem = (function () {
 
   // 创建发光环（管道骨架）
   function createGlowRing(zOffset, radius) {
-    var ringGeo = new THREE.TorusGeometry(radius, 0.06, 8, 48);
+    var ringGeo = new THREE.TorusGeometry(radius, 0.08, 8, 48);
     var ringMat = new THREE.MeshBasicMaterial({
-      color: 0x4466cc,
+      color: 0x00a1b3,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.525,
       depthWrite: false,
     });
     var ring = new THREE.Mesh(ringGeo, ringMat);
@@ -95,9 +105,7 @@ window.PipeSystem = (function () {
 
   function createPipeSegment(zOffset, radius, length, curvature, bendAxis) {
     var mat = starfieldTemplate.clone();
-    var segCount = 64;
-    if (Math.abs(zOffset) > 40) segCount = 32;
-    var geo = new THREE.CylinderGeometry(radius, radius, length, segCount, 1, true);
+    var geo = new THREE.CylinderGeometry(radius, radius, length, 12, 1, true);
     var mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.z = zOffset;
@@ -106,12 +114,12 @@ window.PipeSystem = (function () {
     }
 
     // 线框叠加（结构线）
-    var wireGeo = new THREE.CylinderGeometry(radius * 1.002, radius * 1.002, length, 16, 3, true);
+    var wireGeo = new THREE.CylinderGeometry(radius * 1.002, radius * 1.002, length, 12, 1, true);
     var wireMat = new THREE.MeshBasicMaterial({
-      color: 0x3355aa,
+      color: 0x00e5ff,
       wireframe: true,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.126,
       depthWrite: false,
     });
     var wireframe = new THREE.Mesh(wireGeo, wireMat);
@@ -124,20 +132,20 @@ window.PipeSystem = (function () {
 
     segmentMaterials.push({ mat: mat, mesh: mesh });
 
-    // 在段首尾添加发光环
-    var frontZ = zOffset;
-    var backZ = zOffset - length / 2;
-    var frontRing = createGlowRing(frontZ, radius);
-    var backRing = createGlowRing(backZ, radius);
-    edgeRings.push({ ring: frontRing, zOffset: frontZ });
-    edgeRings.push({ ring: backRing, zOffset: backZ });
-    ringGroup.add(frontRing);
-    ringGroup.add(backRing);
+    segmentCreateIndex++;
+    var rings = [];
+    if (segmentCreateIndex % RING_EVERY_N_SEGMENTS === 0) {
+      var ringZ = zOffset + length / 2;
+      var ring = createGlowRing(ringZ, radius);
+      edgeRings.push({ ring: ring, zOffset: ringZ });
+      ringGroup.add(ring);
+      rings.push(ring);
+    }
 
     return {
       mesh: mesh, zOffset: zOffset, radius: radius, length: length,
       curvature: curvature || 0, bendAxis: bendAxis || null,
-      rings: [frontRing, backRing]
+      rings: rings
     };
   }
 
@@ -181,7 +189,7 @@ window.PipeSystem = (function () {
       edgeRings[r].ring.position.z = edgeRings[r].zOffset;
       // 光环渐隐以节省性能
       var dist = Math.abs(edgeRings[r].zOffset);
-      edgeRings[r].ring.material.opacity = dist < 30 ? 0.5 : Math.max(0.05, 0.5 - (dist - 30) * 0.01);
+      edgeRings[r].ring.material.opacity = dist < 30 ? 0.525 : Math.max(0.08, 0.525 - (dist - 30) * 0.01);
     }
 
 
@@ -292,6 +300,7 @@ window.PipeSystem = (function () {
       segments = [];
       segmentMaterials = [];
       edgeRings = [];
+      segmentCreateIndex = 0;
     }
   };
 })();

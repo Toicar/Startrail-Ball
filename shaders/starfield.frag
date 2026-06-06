@@ -9,18 +9,24 @@ float random(vec2 st) {
 }
 
 void main() {
-  vec3 bgColor = mix(uColor1, uColor2, vUv.y);
-  float star = step(0.998, random(floor(vUv * 80.0 + uTime * 0.03)));
+  vec3 nebula = mix(uColor1, uColor2, vUv.y);
+  nebula += vec3(0.35, 0.08, 0.55) * pow(max(0.0, sin(vUv.x * 6.28 + uTime * 0.15)), 3.0) * 0.25;
+  nebula += vec3(0.15, 0.05, 0.35) * pow(max(0.0, cos(vUv.y * 4.0 - uTime * 0.1)), 2.0) * 0.2;
+  float star = step(0.998, random(floor(vUv * 90.0 + uTime * 0.03)));
   float twinkle = random(vUv + uTime * 0.07) * 0.6 + 0.4;
-  vec3 starColor = vec3(0.9, 0.85, 1.0) * twinkle;
-  float bigStar = step(0.9995, random(floor(vUv * 20.0)));
+  vec3 starColor = vec3(0.9, 0.92, 1.0) * twinkle;
+  float bigStar = step(0.9995, random(floor(vUv * 24.0)));
   star = max(star, bigStar * 1.8);
-  // 网格线 —— 管壁结构线
-  float gridX = abs(fract(vUv.x * 8.0) - 0.5) * 2.0;
-  float gridY = abs(fract(vUv.y * 3.0) - 0.5) * 2.0;
-  float grid = 1.0 - min(gridX, gridY);
-  float line = step(0.96, grid) * 0.08;
-  vec3 color = mix(bgColor, starColor, star);
-  color += line * vec3(0.3, 0.4, 0.8);
-  gl_FragColor = vec4(color, 1.0);
+  float vertLine = smoothstep(0.93, 1.0, 1.0 - abs(fract(vUv.x * 12.0) - 0.5) * 2.0);
+  float horizLine = smoothstep(0.94, 1.0, 1.0 - abs(fract(vUv.y * 0.8) - 0.5) * 2.0);
+  float gridLine = max(vertLine, horizLine);
+  vec3 gridColor = vec3(0.0, 0.92, 1.0) * gridLine;
+  vec3 trackBase = vec3(0.04, 0.12, 0.35);
+  vec3 color = mix(nebula, starColor, star);
+  color = mix(color, trackBase, 0.35);
+  color += gridColor * 1.26;
+  float edge = pow(abs(vUv.y - 0.5) * 2.0, 2.0);
+  color += vec3(0.0, 0.7, 1.0) * edge * 0.105;
+  float alpha = 0.28 + gridLine * 0.385 + edge * 0.084;
+  gl_FragColor = vec4(color, alpha);
 }

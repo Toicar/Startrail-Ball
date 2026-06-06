@@ -26,10 +26,11 @@
   const canvas = document.getElementById('game-canvas');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000011);
+  renderer.setClearColor(0x020818);
   renderer.shadowMap.enabled = false;
 
   const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x020818, 0.008);
   window.scene = scene;
 
   // 摄像机：在球正后方，看到管道截面全貌
@@ -39,12 +40,52 @@
   window.camera = camera;
 
   // 光照
-  const ambientLight = new THREE.AmbientLight(0x223344, 0.6);
+  const ambientLight = new THREE.AmbientLight(0x334466, 0.5);
   scene.add(ambientLight);
-  const pointLight = new THREE.PointLight(0x4488ff, 1.5, 20);
+  const pointLight = new THREE.PointLight(0x00ccff, 1.8, 25);
   pointLight.position.set(0, 0, 0);
   scene.add(pointLight);
   window.pointLight = pointLight;
+
+  // 深空星云背景
+  var nebulaMesh = (function () {
+    var bgVS = [
+      'varying vec3 vPos;',
+      'void main() {',
+      '  vPos = position;',
+      '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+      '}'
+    ].join('\n');
+    var bgFS = [
+      'varying vec3 vPos;',
+      'uniform float uTime;',
+      'float random(vec2 st) {',
+      '  return fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453123);',
+      '}',
+      'void main() {',
+      '  vec3 dir = normalize(vPos);',
+      '  float t = uTime * 0.05;',
+      '  vec3 col = mix(vec3(0.01, 0.02, 0.08), vec3(0.12, 0.04, 0.22), dir.y * 0.5 + 0.5);',
+      '  col += vec3(0.25, 0.08, 0.4) * pow(max(0.0, sin(dir.x * 3.0 + t)), 4.0) * 0.4;',
+      '  col += vec3(0.15, 0.05, 0.3) * pow(max(0.0, cos(dir.z * 2.5 - t * 0.7)), 3.0) * 0.35;',
+      '  float star = step(0.997, random(floor(dir.xy * 120.0 + t)));',
+      '  col += vec3(1.0) * star * 0.8;',
+      '  gl_FragColor = vec4(col, 1.0);',
+      '}'
+    ].join('\n');
+    var geo = new THREE.SphereGeometry(55, 32, 32);
+    var mat = new THREE.ShaderMaterial({
+      vertexShader: bgVS,
+      fragmentShader: bgFS,
+      uniforms: { uTime: { value: 0 } },
+      side: THREE.BackSide,
+      depthWrite: false,
+    });
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = -1;
+    scene.add(mesh);
+    return mesh;
+  })();
 
   // --- 自适应尺寸（竖屏拉远 FOV、横屏收窄）---
   function resize() {
@@ -239,14 +280,17 @@
     Screens.hide();
   };
 
-  // --- 暂停 ---
+  window.pauseGame = function () {
+    if (STATE.phase !== 'playing') return;
+    STATE.phase = 'paused';
+    Screens.showPause();
+  };
+
+  // --- 暂停（顶部热区，保留兼容）---
   canvas.addEventListener('click', function (e) {
     if (STATE.phase !== 'playing' && STATE.phase !== 'paused') return;
     if (e.clientY < window.innerHeight * 0.12) {
-      if (STATE.phase === 'playing') {
-        STATE.phase = 'paused';
-        Screens.showPause();
-      }
+      window.pauseGame();
     }
   });
 
@@ -258,8 +302,6 @@
 
     if (STATE.phase === 'playing') {
       STATE.elapsedTime += dt;
-
-      // 渐进加速 + 难度倍率
       var diff = getCurrentDifficulty(STATE.elapsedTime);
       STATE.difficultyLevel = diff.index;
       var rampSpeed = CONFIG.BALL.BASE_SPEED + STATE.elapsedTime * CONFIG.BALL.SPEED_RAMP;
@@ -344,6 +386,10 @@
       // HUD
       if (window.HUD) HUD.update(STATE);
     }
+
+    var visTime = STATE.elapsedTime || performance.now() * 0.001;
+    if (nebulaMesh) nebulaMesh.material.uniforms.uTime.value = visTime;
+    if (window.Ball && Ball.updateVisuals) Ball.updateVisuals(visTime);
 
     renderer.render(scene, camera);
   }

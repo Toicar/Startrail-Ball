@@ -7,10 +7,12 @@ window.Screens = (function () {
   function show(html) {
     overlay.innerHTML = html;
     overlay.style.display = 'flex';
+    overlay.classList.add('screen-visible');
   }
 
   function hide() {
     overlay.style.display = 'none';
+    overlay.classList.remove('screen-visible');
   }
 
   function buildSettingsHTML() {
@@ -20,8 +22,8 @@ window.Screens = (function () {
     var oriLabels = { auto: '🔄 自动', portrait: '📱 竖屏', landscape: '🖥 横屏' };
     var oriBtns = '';
     ['auto', 'portrait', 'landscape'].forEach(function (m) {
-      var active = m === curOri ? ' style="background:rgba(124,77,255,0.6);border-color:#7c4dff;"' : '';
-      oriBtns += '<button class="set-ori-btn"' + active + ' onclick="window.Screens._setOrientation(\'' + m + '\')">' + oriLabels[m] + '</button>';
+      var active = m === curOri ? ' active' : '';
+      oriBtns += '<button class="set-ori-btn' + active + '" onclick="window.Screens._setOrientation(\'' + m + '\')">' + oriLabels[m] + '</button>';
     });
 
     return '' +
@@ -37,22 +39,13 @@ window.Screens = (function () {
       '</div>';
   }
 
-  // 设置回调（供 onclick 调用）
   function _setOrientation(mode) {
-    if (window.Input) {
-      Input.setOrientation(mode);
-      // 刷新按钮高亮
-      var btns = document.querySelectorAll('.set-ori-btn');
-      for (var i = 0; i < btns.length; i++) {
-        btns[i].style.background = '';
-        btns[i].style.borderColor = '';
-      }
-      var btns2 = document.querySelectorAll('.set-ori-btn');
-      for (var j = 0; j < btns2.length; j++) {
-        if (btns2[j].getAttribute('onclick') && btns2[j].getAttribute('onclick').indexOf("'" + mode + "'") >= 0) {
-          btns2[j].style.background = 'rgba(124,77,255,0.6)';
-          btns2[j].style.borderColor = '#7c4dff';
-        }
+    if (window.Input) Input.setOrientation(mode);
+    var btns = document.querySelectorAll('.set-ori-btn');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.remove('active');
+      if (btns[i].getAttribute('onclick') && btns[i].getAttribute('onclick').indexOf("'" + mode + "'") >= 0) {
+        btns[i].classList.add('active');
       }
     }
   }
@@ -67,7 +60,7 @@ window.Screens = (function () {
   function showStart() {
     var bestScore = 0;
     try { bestScore = parseInt(localStorage.getItem('star_tunnel_best') || '0'); } catch (e) {}
-    var bestHTML = bestScore > 0 ? '<p style="color:#ffd740;margin-bottom:8px;">🏆 最高分: ' + bestScore + '</p>' : '';
+    var bestHTML = bestScore > 0 ? '<p class="start-best">🏆 最高分: ' + bestScore + '</p>' : '';
 
     show(
       '<div class="start-screen">' +
@@ -86,25 +79,25 @@ window.Screens = (function () {
     if (isNewBest) {
       try { localStorage.setItem('star_tunnel_best', score); } catch (e) {}
     }
-    var newBestHTML = isNewBest ? '<p style="color:#ffd740;margin-bottom:8px;">🎉 新纪录！</p>' : '';
+    var newBestHTML = isNewBest ? '<p class="modal-highlight">🎉 新纪录！</p>' : '';
     show(
-      '<div style="text-align:center;color:#fff;padding:20px;">' +
-        '<h2 style="font-size:28px;color:#ff5252;margin-bottom:16px;">撞毁！</h2>' +
-        '<p style="font-size:22px;margin-bottom:4px;">🪙 ' + Math.floor(score) + '</p>' +
+      '<div class="modal-card">' +
+        '<h2 class="modal-title death">撞毁！</h2>' +
+        '<p class="modal-score">🪙 ' + Math.floor(score) + '</p>' +
         newBestHTML +
-        '<p style="color:#8899bb;font-size:14px;">🏆 最高分: ' + Math.max(score, bestScore) + '</p>' +
-        '<p style="color:#667788;font-size:13px;margin-bottom:4px;">📏 ' + Math.floor(distance) + 'm | ⏱ ' + Math.floor(elapsedTime) + 's</p>' +
-        '<button onclick="window.startGame()" style="margin-top:16px;padding:12px 40px;background:linear-gradient(135deg,#7c4dff,#00bcd4);border:none;border-radius:24px;color:#fff;font-size:16px;cursor:pointer;">再来一次</button>' +
+        '<p class="modal-stat">🏆 最高分: ' + Math.max(score, bestScore) + '</p>' +
+        '<p class="modal-stat-sub">📏 ' + Math.floor(distance) + 'm | ⏱ ' + Math.floor(elapsedTime) + 's</p>' +
+        '<button class="btn-primary" onclick="window.startGame()">再来一次</button>' +
       '</div>'
     );
   }
 
   function showPause() {
     show(
-      '<div style="text-align:center;color:#fff;">' +
-        '<h2 style="font-size:28px;margin-bottom:20px;">暂停</h2>' +
-        '<button onclick="window.resumeGame()" style="display:block;padding:12px 40px;margin:8px auto;background:linear-gradient(135deg,#7c4dff,#00bcd4);border:none;border-radius:24px;color:#fff;font-size:16px;cursor:pointer;">继续</button>' +
-        '<button onclick="window.startGame()" style="display:block;padding:12px 40px;margin:8px auto;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:24px;color:#fff;font-size:16px;cursor:pointer;">重新开始</button>' +
+      '<div class="modal-card">' +
+        '<h2 class="modal-title">暂停</h2>' +
+        '<button class="btn-primary" onclick="window.resumeGame()">继续</button>' +
+        '<button class="btn-secondary" onclick="window.startGame()">重新开始</button>' +
       '</div>'
     );
   }
