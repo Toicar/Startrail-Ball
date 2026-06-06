@@ -13,7 +13,6 @@ window.World = (function () {
     shield:           { color: 0xffaa00, geo: 'sphere',     size: 0.45 },
     scoreX2:          { color: 0xea80fc, geo: 'star',       size: 0.45 },
     spike:            { color: 0xff1744, geo: 'cone',       size: 0.5, hazard: true },
-    slowZone:         { color: 0x795548, geo: 'ring',       size: 0.85, hazard: true },
     rotatingBarrier:  { color: 0xff6d00, geo: 'box',        size: 0.65, hazard: true },
     bonusGate:        { color: 0x00e676, geo: 'torus',      size: 0.75 },
     checkpoint:       { color: 0x448aff, geo: 'ring',       size: 0.65 },
@@ -139,11 +138,6 @@ window.World = (function () {
     if (buffRoll < 0.15) placeItem('magnet', zStart + len * (0.3 + Math.random() * 0.4), pickLane(false), pipeRadius);
     else if (buffRoll > 0.85) placeItem('shield', zStart + len * (0.4 + Math.random() * 0.4), pickLane(false), pipeRadius);
     if (Math.random() < 0.08) placeItem('scoreX2', zStart + len * Math.random(), pickLane(false), pipeRadius);
-
-    // 减速区（入门后）
-    if (difficultyLevel >= 1 && Math.random() < 0.25) {
-      placeItem('slowZone', zStart + len * (0.3 + Math.random() * 0.4), LANES[ballLane], pipeRadius);
-    }
 
     // 旋转障碍（挑战后）
     if (difficultyLevel >= 2 && Math.random() < 0.35) {

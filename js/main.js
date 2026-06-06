@@ -175,10 +175,6 @@
         }
         break;
 
-      case 'slowZone':
-        STATE.activeBuffs.slow = 2.0;
-        break;
-
       case 'rotatingBarrier':
         if (STATE.invincible > 0) break;
         if (window.Effects) Effects.spawnBurst(ballThreePos, 0xff6d00);
@@ -272,7 +268,6 @@
       // Buff 速度修正
       var speedMultiplier = 1;
       if (STATE.activeBuffs.speedBoost > 0) speedMultiplier *= CONFIG.BUFFS.SPEED_BOOST.speedMul;
-      if (STATE.activeBuffs.slow > 0) speedMultiplier *= 0.35;
 
       var finalSpeed = baseSpeed * speedMultiplier;
       Physics.setSpeed(finalSpeed);
