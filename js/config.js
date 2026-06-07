@@ -10,9 +10,10 @@ const CONFIG = {
   // 球
   BALL: {
     RADIUS: 0.55,
-    BASE_SPEED: 6,
-    MAX_SPEED: 22,
-    POST_CAP_GAIN_PER_30S: 0.05,
+    BASE_SPEED: 20,
+    MAX_SPEED: 30,
+    AUTO_SPEED_LIMIT: 50,
+    POST_CAP_GAIN_PER_SECOND: 0.008,
     SPEED_RAMP: 0.8,       // 每秒加速量
     TILT_SENSITIVITY: 0.06,
     PICKUP_RANGE: 0.6,     // 额外拾取范围
@@ -37,7 +38,7 @@ const CONFIG = {
   ],
   // 道具
   BUFFS: {
-    SPEED_BOOST:  { duration: 3.0,  speedMul: 1.4, maxStacks: 3, dashDuration: 2.0, dashMul: 2.0, dashDecayDuration: 1.5, stripLength: 5.5 },
+    SPEED_BOOST:  { duration: 3.0,  speedMul: 1.4, maxStacks: 3, dashDuration: 3.5, dashMul: 2.0, dashDecayDuration: 1.5, stripLength: 5.5 },
     MAGNET:       { duration: 5.0,  radius: 9 },
     SHIELD:       { duration: Infinity, hitsBlocked: 1 },
     SCORE_DOUBLE: { duration: 8.0,  multiplier: 2 },

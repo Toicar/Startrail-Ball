@@ -549,8 +549,11 @@
           STATE._speedCapStartedAt = STATE.elapsedTime;
         }
         var postCapTime = Math.max(0, STATE.elapsedTime - STATE._speedCapStartedAt);
-        var postCapGain = (postCapTime / 30) * (CONFIG.BALL.POST_CAP_GAIN_PER_30S || 0.05);
-        baseSpeed = CONFIG.BALL.MAX_SPEED * (1 + postCapGain);
+        var postCapGain = postCapTime * (CONFIG.BALL.POST_CAP_GAIN_PER_SECOND || 0.008);
+        baseSpeed = Math.min(
+          CONFIG.BALL.MAX_SPEED * (1 + postCapGain),
+          CONFIG.BALL.AUTO_SPEED_LIMIT || 50
+        );
       } else {
         STATE._speedCapStartedAt = null;
       }

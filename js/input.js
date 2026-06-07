@@ -54,6 +54,7 @@ window.Input = (function () {
     var divisor = 45 / gyroSensitivity;
     var raw = THREE.MathUtils.clamp(tilt / divisor, -1, 1);
     targetAngle = -raw * ANGLE_RANGE;
+
   }
 
   // --- 触屏：虚拟摇杆 ---
