@@ -15,6 +15,8 @@ window.Input = (function () {
   var KEYBOARD_RANGE_MUL = 0.64;
   var KEYBOARD_RESPONSE = 4.2;
   var KEYBOARD_RETURN = 5.0;
+  var jumpQueued = false;
+  var jumpCooldown = 0;
 
   // --- 陀螺仪：横竖屏自适应 + 灵敏度 ---
   function onDeviceOrientation(e) {
@@ -62,6 +64,10 @@ window.Input = (function () {
   window.addEventListener('keydown', function (e) {
     keysDown[e.key] = true;
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
+    if (e.key === ' ' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      triggerJump();
+    }
   });
   window.addEventListener('keyup', function (e) {
     keysDown[e.key] = false;
@@ -153,11 +159,29 @@ window.Input = (function () {
   }
 
   function getTargetAngle() { return targetAngle; }
-  function resetAngle() { targetAngle = 0; keyboardActive = false; }
+  function getAngleRange() { return ANGLE_RANGE; }
+  function resetAngle() { targetAngle = 0; keyboardActive = false; jumpQueued = false; }
+
+  function triggerJump() {
+    if (jumpCooldown > 0) return;
+    jumpQueued = true;
+    jumpCooldown = 0.08;
+  }
+
+  function consumeJump() {
+    var j = jumpQueued;
+    jumpQueued = false;
+    return j;
+  }
+
+  function updateJumpCooldown(dt) {
+    jumpCooldown = Math.max(0, jumpCooldown - dt);
+  }
 
   return {
     init: init, update: update,
-    getTargetAngle: getTargetAngle, resetAngle: resetAngle,
+    getTargetAngle: getTargetAngle, getAngleRange: getAngleRange, resetAngle: resetAngle,
+    triggerJump: triggerJump, consumeJump: consumeJump, updateJumpCooldown: updateJumpCooldown,
     setGyroSensitivity: setGyroSensitivity, getGyroSensitivity: getGyroSensitivity,
     setOrientation: setOrientation, getOrientation: getOrientation,
     setAngleRange: setAngleRange, applyOrientation: applyOrientation,

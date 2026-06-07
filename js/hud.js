@@ -3,7 +3,11 @@ window.HUD = (function () {
   'use strict';
 
   var overlay = document.getElementById('hud-overlay');
-  var speedFill, scoreValueEl, comboEl, buffsEl, livesEl;
+  var jumpBtn = null;
+  var speedFill, scoreValueEl, comboEl, comboMultEl, buffsEl, livesEl;
+  var lastComboTier = 0;
+  var lastComboCount = 0;
+  var comboPopTimer = null;
 
   function assetSrc(src) {
     return (window.AssetData && window.AssetData.images && window.AssetData.images[src]) || ('./image/' + src);
@@ -46,15 +50,34 @@ window.HUD = (function () {
         '<div class="hud-speed-bar"><div id="hud-speed-fill" class="hud-speed-fill" style="width:0%;"></div></div>' +
       '</div>' +
       '<div id="hud-buffs" class="hud-buffs"></div>' +
-      '<div id="hud-combo" class="hud-combo"></div>';
+      '<div id="hud-combo" class="hud-combo" aria-hidden="true">' +
+        '<span class="combo-flare" aria-hidden="true"></span>' +
+        '<span class="combo-label">COMBO</span>' +
+        '<strong class="combo-mult">×2</strong>' +
+      '</div>' +
+      '<button id="hud-jump-btn" class="hud-jump-btn" type="button" aria-label="跳跃" style="display:none;">' +
+        '<span class="hud-jump-icon"></span>' +
+      '</button>';
 
     speedFill = document.getElementById('hud-speed-fill');
     scoreValueEl = document.getElementById('hud-score-value');
     comboEl = document.getElementById('hud-combo');
+    comboMultEl = comboEl ? comboEl.querySelector('.combo-mult') : null;
     buffsEl = document.getElementById('hud-buffs');
     livesEl = document.getElementById('hud-lives');
+    jumpBtn = document.getElementById('hud-jump-btn');
+    if (jumpBtn) {
+      jumpBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (window.Input && Input.triggerJump) Input.triggerJump();
+      });
+    }
     renderLives(3, 3);
     overlay.style.display = 'none';
+  }
+
+  function setJumpVisible(visible) {
+    if (jumpBtn) jumpBtn.style.display = visible ? 'flex' : 'none';
   }
 
   function show() { overlay.style.display = 'block'; }
@@ -72,13 +95,36 @@ window.HUD = (function () {
     scoreValueEl.textContent = Math.floor(state.score);
     renderLives(state.lives, state.maxLives);
 
-    var speedPct = Math.max(0, Math.min(100, Math.floor((state.speed / CONFIG.BALL.MAX_SPEED) * 100)));
+    var maxSpeed = (state.level === 2 && typeof LEVEL2_CONFIG !== 'undefined') ? LEVEL2_CONFIG.SPEED.MAX : CONFIG.BALL.MAX_SPEED;
+    var speedPct = Math.max(0, Math.min(100, Math.floor((state.speed / maxSpeed) * 100)));
     speedFill.style.width = speedPct + '%';
 
-    if (state.combo >= 15) comboEl.textContent = 'COMBO x5';
-    else if (state.combo >= 10) comboEl.textContent = 'COMBO x3';
-    else if (state.combo >= 5) comboEl.textContent = 'COMBO x2';
-    else comboEl.textContent = '';
+    if (comboEl) {
+      var tier = 0;
+      var mult = '';
+      if (state.combo >= 15) { tier = 3; mult = '×5'; }
+      else if (state.combo >= 10) { tier = 2; mult = '×3'; }
+      else if (state.combo >= 5) { tier = 1; mult = '×2'; }
+
+      if (tier > 0) {
+        comboEl.className = 'hud-combo visible combo-tier-' + tier;
+        comboEl.setAttribute('aria-hidden', 'false');
+        if (comboMultEl) comboMultEl.textContent = mult;
+        if (tier > lastComboTier || state.combo > lastComboCount) {
+          comboEl.classList.add('combo-pop');
+          if (comboPopTimer) clearTimeout(comboPopTimer);
+          comboPopTimer = setTimeout(function () {
+            if (comboEl) comboEl.classList.remove('combo-pop');
+          }, 420);
+        }
+      } else {
+        comboEl.className = 'hud-combo';
+        comboEl.setAttribute('aria-hidden', 'true');
+        comboEl.classList.remove('combo-pop');
+      }
+      lastComboTier = tier;
+      lastComboCount = state.combo;
+    }
 
     var buffs = state.activeBuffs;
     var html = '';
@@ -89,5 +135,25 @@ window.HUD = (function () {
     buffsEl.innerHTML = html;
   }
 
-  return { init: init, show: show, hide: hide, update: update };
+  function updateComboAnchor(screenX, screenY) {
+    if (!comboEl) return;
+    comboEl.style.left = Math.round(screenX) + 'px';
+    comboEl.style.top = Math.round(screenY) + 'px';
+  }
+
+  function resetComboUI() {
+    lastComboTier = 0;
+    lastComboCount = 0;
+    if (comboEl) {
+      comboEl.className = 'hud-combo';
+      comboEl.setAttribute('aria-hidden', 'true');
+      comboEl.classList.remove('combo-pop');
+    }
+  }
+
+  return {
+    init: init, show: show, hide: hide, update: update,
+    updateComboAnchor: updateComboAnchor, resetComboUI: resetComboUI,
+    setJumpVisible: setJumpVisible,
+  };
 })();

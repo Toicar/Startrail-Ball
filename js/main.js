@@ -5,6 +5,7 @@
   // --- 全局状态 ---
   const STATE = {
     phase: 'start',
+    level: 1,
     score: 0,
     combo: 0,
     lastCoinTime: 0,
@@ -114,6 +115,26 @@
     camera.updateProjectionMatrix();
     Input.applyOrientation();
   }
+
+  var comboAnchorTmp = new THREE.Vector3();
+
+  function updateComboAnchor() {
+    if (!window.HUD || !HUD.updateComboAnchor || !window.Ball || STATE.phase !== 'playing') return;
+    if (STATE.level === 2) return;
+    var pos = Ball.getPosition();
+    comboAnchorTmp.copy(pos);
+    comboAnchorTmp.x += CONFIG.BALL.RADIUS * 0.78;
+    comboAnchorTmp.y += CONFIG.BALL.RADIUS * 0.95;
+    comboAnchorTmp.z += 0.08;
+    comboAnchorTmp.project(camera);
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    HUD.updateComboAnchor(
+      (comboAnchorTmp.x * 0.5 + 0.5) * w,
+      (-comboAnchorTmp.y * 0.5 + 0.5) * h
+    );
+  }
+
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', function () { setTimeout(resize, 200); });
   resize();
@@ -157,14 +178,18 @@
   function die() {
     STATE.phase = 'dead';
     try { if (window.AudioFX) AudioFX.stopBGM(); } catch (e) {}
-    var bestScore = parseInt(safeGetStorage('star_tunnel_best', '0'));
+    var bestKey = STATE.level === 2 ? 'star_tunnel_best_l2' : 'star_tunnel_best';
+    var bestScore = parseInt(safeGetStorage(bestKey, '0'));
     if (STATE.score > bestScore) {
-      safeSetStorage('star_tunnel_best', STATE.score);
+      safeSetStorage(bestKey, STATE.score);
       bestScore = STATE.score;
     }
-    Screens.showDeath(STATE.score, bestScore, STATE.distance, STATE.elapsedTime);
+    Screens.showDeath(STATE.score, bestScore, STATE.distance, STATE.elapsedTime, STATE.level);
     HUD.hide();
+    if (window.HUD && HUD.setJumpVisible) HUD.setJumpVisible(false);
   }
+
+  window.mainTakeDamage = takeDamage;
 
   function handleCollision(col) {
     var ballThreePos = Ball.getPosition();
@@ -228,6 +253,18 @@
         }
         break;
 
+      case 'barrier':
+        if (STATE.invincible > 0) break;
+        if (window.Effects) Effects.spawnBurst(ballThreePos, 0xff6d00);
+        if (STATE.hasShield) {
+          STATE.hasShield = false;
+          Ball.setShieldActive(false);
+        } else {
+          if (window.AudioFX) AudioFX.hitObstacle();
+          takeDamage();
+        }
+        break;
+
       case 'bonusGate':
         triggerBonusGold();
         if (window.AudioFX) AudioFX.powerUp();
@@ -240,8 +277,26 @@
     }
   }
 
+  window.mainHandleCollision = function (col) {
+    if (col.jumpPad && window.Level2Controller) {
+      var b = Level2Controller.getBall();
+      if (b) {
+        b.jumpVel = LEVEL2_CONFIG.ROLLING.LAUNCH_V;
+        b.jumpOffset = Math.max(b.jumpOffset, 0.05);
+      }
+      if (window.AudioFX) AudioFX.powerUp();
+      return;
+    }
+    if (col.type === 'ringBlock' || col.type === 'barrier') {
+      handleCollision({ type: col.type === 'ringBlock' ? 'spike' : 'barrier' });
+      return;
+    }
+    handleCollision(col);
+  };
+
   // --- 游戏开始/恢复 ---
-  window.startGame = function () {
+  window.startGame = function (level) {
+    STATE.level = level || STATE.level || 1;
     STATE.phase = 'playing';
     STATE.score = 0;
     STATE.combo = 0;
@@ -258,20 +313,31 @@
     STATE.difficultyLevel = 0;
     STATE._cpPlaced = {};
     STATE._pipeRotZ = 0;
-    PipeSystem.group.rotation.z = 0;
-    PipeSystem.ringGroup.rotation.z = 0;
-    if (World.group) World.group.rotation.z = 0;
 
     Input.resetAngle();
-    Physics.init();
-    // ⚠️ 关键顺序：先清空 World，再生成管道（管道生成会调用 World.populateSegment）
-    World.reset();
-    PipeSystem.reset();
-    PipeSystem.init();
     Ball.setShieldActive(false);
+    Ball.setInvincible(false);
+
+    if (STATE.level === 2) {
+      Physics.init();
+      World.reset();
+      PipeSystem.reset();
+      if (window.Level2Controller) Level2Controller.start();
+    } else {
+      if (window.Level2Controller) Level2Controller.hide();
+      PipeSystem.group.rotation.z = 0;
+      PipeSystem.ringGroup.rotation.z = 0;
+      if (World.group) World.group.rotation.z = 0;
+      Physics.init();
+      World.reset();
+      PipeSystem.reset();
+      PipeSystem.init();
+      if (window.HUD && HUD.setJumpVisible) HUD.setJumpVisible(false);
+    }
 
     Screens.hide();
     HUD.show();
+    if (window.HUD && HUD.resetComboUI) HUD.resetComboUI();
     if (window.AudioFX) { AudioFX.resume(); AudioFX.startBGM(); }
   };
 
@@ -302,6 +368,25 @@
 
     if (STATE.phase === 'playing') {
       STATE.elapsedTime += dt;
+      Input.updateJumpCooldown(dt);
+
+      if (STATE.level === 2 && window.Level2Controller) {
+        Level2Controller.update(dt);
+
+        if (STATE.invincible > 0) {
+          STATE.invincible -= dt;
+          if (STATE.invincible <= 0) {
+            STATE.invincible = 0;
+            Ball.setInvincible(false);
+          }
+        }
+        var keys = Object.keys(STATE.activeBuffs);
+        for (var k = 0; k < keys.length; k++) {
+          STATE.activeBuffs[keys[k]] -= dt;
+          if (STATE.activeBuffs[keys[k]] <= 0) delete STATE.activeBuffs[keys[k]];
+        }
+        if (STATE.elapsedTime - STATE.lastCoinTime > 1.5) STATE.combo = 0;
+      } else {
       var diff = getCurrentDifficulty(STATE.elapsedTime);
       STATE.difficultyLevel = diff.index;
       var rampSpeed = CONFIG.BALL.BASE_SPEED + STATE.elapsedTime * CONFIG.BALL.SPEED_RAMP;
@@ -384,7 +469,11 @@
       }
 
       // HUD
-      if (window.HUD) HUD.update(STATE);
+      if (window.HUD) {
+        HUD.update(STATE);
+        updateComboAnchor();
+      }
+      }
     }
 
     var visTime = STATE.elapsedTime || performance.now() * 0.001;
@@ -408,8 +497,9 @@
     showToast('哎呀，出错了，请重启试试吧~');
     if (STATE.phase === 'playing') {
       STATE.phase = 'dead';
-      var bestScore = parseInt(safeGetStorage('star_tunnel_best', '0'));
-      Screens.showDeath(STATE.score, bestScore, STATE.distance, STATE.elapsedTime);
+      var bestKey = STATE.level === 2 ? 'star_tunnel_best_l2' : 'star_tunnel_best';
+      var bestScore = parseInt(safeGetStorage(bestKey, '0'));
+      Screens.showDeath(STATE.score, bestScore, STATE.distance, STATE.elapsedTime, STATE.level);
     }
   });
 
@@ -422,6 +512,7 @@
   if (window.Effects) Effects.init();
   if (window.HUD) HUD.init();
   if (window.AudioFX) AudioFX.init();
+  if (window.Level2Controller) Level2Controller.init();
 
   gameLoop();
   Screens.showStart();

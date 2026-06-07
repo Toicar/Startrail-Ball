@@ -81,8 +81,14 @@ window.Screens = (function () {
 
   function showStart() {
     var bestScore = 0;
-    try { bestScore = parseInt(localStorage.getItem('star_tunnel_best') || '0'); } catch (e) {}
-    var bestHTML = bestScore > 0 ? '<p class="start-best">最高分 ' + bestScore + '</p>' : '';
+    var bestScoreL2 = 0;
+    try {
+      bestScore = parseInt(localStorage.getItem('star_tunnel_best') || '0');
+      bestScoreL2 = parseInt(localStorage.getItem('star_tunnel_best_l2') || '0');
+    } catch (e) {}
+    var bestHTML = (bestScore > 0 || bestScoreL2 > 0)
+      ? '<p class="start-best">第一关最高 ' + bestScore + ' · 第二关最高 ' + bestScoreL2 + '</p>'
+      : '';
 
     show(
       '<div class="start-screen">' +
@@ -92,15 +98,22 @@ window.Screens = (function () {
         bestHTML +
         '<div class="set-panel">' + buildSettingsHTML() + '</div>' +
         '<p class="start-hint">星河管道已开启。</p>' +
-        '<button class="start-btn" onclick="window.startGame()">开始游戏</button>' +
+        '<div class="level-select-row">' +
+          '<button class="start-btn level-btn" onclick="window.startGame(1)">第一关 · 星轨管道</button>' +
+          '<button class="start-btn level-btn level-btn-alt" onclick="window.startGame(2)">第二关 · 三角星轨</button>' +
+        '</div>' +
       '</div>'
     );
   }
 
-  function showDeath(score, bestScore, distance, elapsedTime) {
-    var isNewBest = score >= bestScore;
-    if (isNewBest) {
-      try { localStorage.setItem('star_tunnel_best', score); } catch (e) {}
+  function showDeath(score, bestScore, distance, elapsedTime, level) {
+    level = level || 1;
+    var bestKey = level === 2 ? 'star_tunnel_best_l2' : 'star_tunnel_best';
+    try { bestScore = parseInt(localStorage.getItem(bestKey) || '0'); } catch (e) { bestScore = 0; }
+    var isNewBest = score > bestScore;
+    if (score > bestScore) {
+      try { localStorage.setItem(bestKey, score); } catch (e) {}
+      bestScore = score;
     }
     var newBestHTML = isNewBest ? '<p class="modal-highlight">新纪录</p>' : '';
     show(
@@ -110,7 +123,8 @@ window.Screens = (function () {
         newBestHTML +
         '<p class="modal-stat">最高分 ' + Math.max(score, bestScore) + '</p>' +
         '<p class="modal-stat-sub">' + Math.floor(distance) + 'm · ' + Math.floor(elapsedTime) + 's</p>' +
-        '<button class="btn-primary" onclick="window.startGame()">再来一次</button>' +
+        '<button class="btn-primary" onclick="window.startGame(' + level + ')">再来一次</button>' +
+        '<button class="btn-secondary" onclick="window.Screens.showStart()">选关</button>' +
       '</div>'
     );
   }
@@ -120,7 +134,7 @@ window.Screens = (function () {
       '<div class="modal-card">' +
         '<h2 class="modal-title">暂停</h2>' +
         '<button class="btn-primary" onclick="window.resumeGame()">继续</button>' +
-        '<button class="btn-secondary" onclick="window.startGame()">重新开始</button>' +
+        '<button class="btn-secondary" onclick="window.startGame(window.STATE ? window.STATE.level : 1)">重新开始</button>' +
       '</div>'
     );
   }
