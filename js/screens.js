@@ -104,7 +104,9 @@ window.Screens = (function () {
 
   function buildSettingsHTML() {
     var curOri = (window.Input && Input.getOrientation) ? Input.getOrientation() : 'auto';
-    var curSens = (window.Input && Input.getGyroSensitivity) ? Input.getGyroSensitivity() : CONFIG.GYRO.SENSITIVITY_DEFAULT;
+    var curSens = (window.Input && Input.getControlSensitivity) ? Input.getControlSensitivity()
+      : (window.Input && Input.getGyroSensitivity) ? Input.getGyroSensitivity()
+      : CONFIG.GYRO.SENSITIVITY_DEFAULT;
 
     var oriLabels = { auto: '自动', portrait: '竖屏', landscape: '横屏' };
     var oriBtns = '';
@@ -119,7 +121,7 @@ window.Screens = (function () {
         '<div class="set-ori-row">' + oriBtns + '</div>' +
       '</div>' +
       '<div class="set-group">' +
-        '<div class="set-label">陀螺仪灵敏度<span id="sens-val">' + curSens.toFixed(1) + '</span></div>' +
+        '<div class="set-label">操作灵敏度<span id="sens-val">' + curSens.toFixed(1) + '</span></div>' +
         '<input type="range" class="set-slider" min="0.3" max="1.2" step="0.1" value="' + curSens +
           '" oninput="window.Screens._setSensitivity(this.value)">' +
         '<div class="set-range-labels"><span>低</span><span>高</span></div>' +
@@ -139,7 +141,10 @@ window.Screens = (function () {
 
   function _setSensitivity(val) {
     var v = parseFloat(val);
-    if (window.Input) Input.setGyroSensitivity(v);
+    if (window.Input) {
+      if (Input.setControlSensitivity) Input.setControlSensitivity(v);
+      else Input.setGyroSensitivity(v);
+    }
     var label = document.getElementById('sens-val');
     if (label) label.textContent = v.toFixed(1);
   }

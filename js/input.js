@@ -8,13 +8,17 @@ window.Input = (function () {
   var gyroAvailable = false;
   var touchActive = false;
   var touchStartX = 0;
-  var gyroSensitivity = CONFIG.GYRO.SENSITIVITY_DEFAULT;
+  var controlSensitivity = CONFIG.GYRO.SENSITIVITY_DEFAULT;
   var isLandscape = false;
   var orientationMode = 'auto'; // 'auto' | 'portrait' | 'landscape'
   var keyboardActive = false;
   var KEYBOARD_RANGE_MUL = 1.0;
   var KEYBOARD_RESPONSE = 4.2;
   var KEYBOARD_RETURN = 5.0;
+
+  function getSensitivityMultiplier() {
+    return controlSensitivity / CONFIG.GYRO.SENSITIVITY_DEFAULT;
+  }
 
   // --- 陀螺仪：横竖屏自适应 + 灵敏度 ---
   function onDeviceOrientation(e) {
@@ -28,7 +32,7 @@ window.Input = (function () {
     // 横屏用 beta（左右倾），竖屏用 gamma
     var tilt = isLandscape ? (e.beta || 0) : (e.gamma || 0);
     if (tilt === null || tilt === undefined) return;
-    var divisor = 45 / gyroSensitivity;
+    var divisor = 45 / controlSensitivity;
     var raw = THREE.MathUtils.clamp(tilt / divisor, -1, 1);
     targetAngle = -raw * ANGLE_RANGE;
 
@@ -62,7 +66,7 @@ window.Input = (function () {
     e.preventDefault();
     var dx = e.touches[0].clientX - touchStartX;
     var halfWidth = window.innerWidth * 0.45;
-    var normalized = THREE.MathUtils.clamp(dx / halfWidth, -1, 1);
+    var normalized = THREE.MathUtils.clamp((dx / halfWidth) * getSensitivityMultiplier(), -1, 1);
     targetAngle = -normalized * ANGLE_RANGE;
   }
 
@@ -91,7 +95,7 @@ window.Input = (function () {
     // 有键盘输入时覆盖陀螺仪，无输入时保持陀螺仪角度不变
     if (desired !== null) {
       keyboardActive = true;
-      targetAngle += (desired - targetAngle) * Math.min(KEYBOARD_RESPONSE * dt, 1);
+      targetAngle += (desired - targetAngle) * Math.min(KEYBOARD_RESPONSE * getSensitivityMultiplier() * dt, 1);
     } else if (keyboardActive && !useGyro) {
       targetAngle += (0 - targetAngle) * Math.min(KEYBOARD_RETURN * dt, 1);
       if (Math.abs(targetAngle) < 0.01) {
@@ -102,12 +106,14 @@ window.Input = (function () {
   }
 
   // --- 设置接口 ---
-  function setGyroSensitivity(val) {
-    gyroSensitivity = THREE.MathUtils.clamp(val, 0.3, 1.2);
-    try { localStorage.setItem('star_tunnel_sensitivity', gyroSensitivity); } catch (e) {}
+  function setControlSensitivity(val) {
+    controlSensitivity = THREE.MathUtils.clamp(val, 0.3, 1.2);
+    try { localStorage.setItem('star_tunnel_sensitivity', controlSensitivity); } catch (e) {}
   }
 
-  function getGyroSensitivity() { return gyroSensitivity; }
+  function getControlSensitivity() { return controlSensitivity; }
+  function setGyroSensitivity(val) { setControlSensitivity(val); }
+  function getGyroSensitivity() { return getControlSensitivity(); }
 
   function setOrientation(mode) {
     orientationMode = mode;
@@ -141,7 +147,7 @@ window.Input = (function () {
   function loadSettings() {
     try {
       var savedSens = parseFloat(localStorage.getItem('star_tunnel_sensitivity'));
-      if (savedSens > 0) gyroSensitivity = THREE.MathUtils.clamp(savedSens, 0.3, 1.2);
+      if (savedSens > 0) controlSensitivity = THREE.MathUtils.clamp(savedSens, 0.3, 1.2);
       var savedOri = localStorage.getItem('star_tunnel_orientation');
       if (savedOri === 'portrait' || savedOri === 'landscape' || savedOri === 'auto') {
         orientationMode = savedOri;
@@ -182,6 +188,7 @@ window.Input = (function () {
   return {
     init: init, update: update,
     getTargetAngle: getTargetAngle, resetAngle: resetAngle,
+    setControlSensitivity: setControlSensitivity, getControlSensitivity: getControlSensitivity,
     setGyroSensitivity: setGyroSensitivity, getGyroSensitivity: getGyroSensitivity,
     setOrientation: setOrientation, getOrientation: getOrientation,
     setAngleRange: setAngleRange, applyOrientation: applyOrientation,
