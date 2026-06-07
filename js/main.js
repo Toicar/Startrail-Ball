@@ -11,7 +11,6 @@
     distance: 0,
     speed: CONFIG.BALL.BASE_SPEED,
     baseSpeed: CONFIG.BALL.BASE_SPEED,
-    brakeAmount: 0,
     ballAngle: 0,
     activeBuffs: {},
     speedBoostStacks: 0,
@@ -392,7 +391,6 @@
     STATE.distance = 0;
     STATE.speed = CONFIG.BALL.BASE_SPEED;
     STATE.baseSpeed = CONFIG.BALL.BASE_SPEED;
-    STATE.brakeAmount = 0;
     STATE.speedBoostStacks = 0;
     STATE.ballAngle = 0;
     STATE.activeBuffs = {};
@@ -478,8 +476,11 @@
           STATE._speedCapStartedAt = STATE.elapsedTime;
         }
         var postCapTime = Math.max(0, STATE.elapsedTime - STATE._speedCapStartedAt);
-        var postCapGain = (postCapTime / 30) * (CONFIG.BALL.POST_CAP_GAIN_PER_30S || 0.05);
-        baseSpeed = CONFIG.BALL.MAX_SPEED * (1 + postCapGain);
+        var postCapGain = postCapTime * (CONFIG.BALL.POST_CAP_GAIN_PER_SECOND || 0.008);
+        baseSpeed = Math.min(
+          CONFIG.BALL.MAX_SPEED * (1 + postCapGain),
+          CONFIG.BALL.AUTO_SPEED_LIMIT || 50
+        );
       } else {
         STATE._speedCapStartedAt = null;
       }
@@ -504,11 +505,6 @@
       }
 
       var finalSpeed = baseSpeed * speedMultiplier;
-      var brakeAmount = (window.Input && Input.getBrakeAmount) ? Input.getBrakeAmount() : 0;
-      brakeAmount = THREE.MathUtils.clamp(brakeAmount, 0, 1);
-      var brakeMinMul = CONFIG.BALL.BRAKE_MIN_MUL || 0.45;
-      finalSpeed *= 1 - brakeAmount * (1 - brakeMinMul);
-      STATE.brakeAmount = brakeAmount;
       Physics.setSpeed(finalSpeed);
       STATE.speed = finalSpeed;
       STATE.distance += finalSpeed * dt;
