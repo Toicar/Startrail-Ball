@@ -12,6 +12,8 @@ window.Input = (function () {
   var isLandscape = false;
   var orientationMode = 'auto'; // 'auto' | 'portrait' | 'landscape'
   var keyboardActive = false;
+  var brakeAmount = 0;
+  var gyroBrakeAmount = 0;
   var KEYBOARD_RANGE_MUL = 1.0;
   var KEYBOARD_RESPONSE = 4.2;
   var KEYBOARD_RETURN = 5.0;
@@ -31,6 +33,11 @@ window.Input = (function () {
     var divisor = 45 / gyroSensitivity;
     var raw = THREE.MathUtils.clamp(tilt / divisor, -1, 1);
     targetAngle = -raw * ANGLE_RANGE;
+
+    var pitch = isLandscape ? -(e.gamma || 0) : (e.beta || 0);
+    var start = CONFIG.BALL.BRAKE_GYRO_START || 12;
+    var full = CONFIG.BALL.BRAKE_GYRO_FULL || 38;
+    gyroBrakeAmount = THREE.MathUtils.clamp((pitch - start) / Math.max(1, full - start), 0, 1);
   }
 
   // --- 触屏：虚拟摇杆 ---
@@ -61,7 +68,7 @@ window.Input = (function () {
   var keysDown = {};
   window.addEventListener('keydown', function (e) {
     keysDown[e.key] = true;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowDown') e.preventDefault();
   });
   window.addEventListener('keyup', function (e) {
     keysDown[e.key] = false;
@@ -84,6 +91,10 @@ window.Input = (function () {
         keyboardActive = false;
       }
     }
+
+    var desiredBrake = keysDown['ArrowDown'] ? 1 : gyroBrakeAmount;
+    var brakeResponse = CONFIG.BALL.BRAKE_KEY_RESPONSE || 6;
+    brakeAmount += (desiredBrake - brakeAmount) * Math.min(brakeResponse * dt, 1);
   }
 
   // --- 设置接口 ---
@@ -159,11 +170,17 @@ window.Input = (function () {
   }
 
   function getTargetAngle() { return targetAngle; }
-  function resetAngle() { targetAngle = 0; keyboardActive = false; }
+  function getBrakeAmount() { return brakeAmount; }
+  function resetAngle() {
+    targetAngle = 0;
+    keyboardActive = false;
+    brakeAmount = 0;
+    gyroBrakeAmount = 0;
+  }
 
   return {
     init: init, update: update,
-    getTargetAngle: getTargetAngle, resetAngle: resetAngle,
+    getTargetAngle: getTargetAngle, getBrakeAmount: getBrakeAmount, resetAngle: resetAngle,
     setGyroSensitivity: setGyroSensitivity, getGyroSensitivity: getGyroSensitivity,
     setOrientation: setOrientation, getOrientation: getOrientation,
     setAngleRange: setAngleRange, applyOrientation: applyOrientation,

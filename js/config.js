@@ -14,6 +14,10 @@ const CONFIG = {
     MAX_SPEED: 22,
     POST_CAP_GAIN_PER_30S: 0.05,
     SPEED_RAMP: 0.8,       // 每秒加速量
+    BRAKE_MIN_MUL: 0.45,
+    BRAKE_KEY_RESPONSE: 6.0,
+    BRAKE_GYRO_START: 12,
+    BRAKE_GYRO_FULL: 38,
     TILT_SENSITIVITY: 0.06,
     PICKUP_RANGE: 0.6,     // 额外拾取范围
   },
