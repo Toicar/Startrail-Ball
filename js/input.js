@@ -12,7 +12,7 @@ window.Input = (function () {
   var isLandscape = false;
   var orientationMode = 'auto'; // 'auto' | 'portrait' | 'landscape'
   var keyboardActive = false;
-  var KEYBOARD_RANGE_MUL = 0.64;
+  var KEYBOARD_RANGE_MUL = 1.0;
   var KEYBOARD_RESPONSE = 4.2;
   var KEYBOARD_RETURN = 5.0;
   var jumpQueued = false;
@@ -149,12 +149,13 @@ window.Input = (function () {
     orientationMode = mode;
     applyOrientation();
     try { localStorage.setItem('star_tunnel_orientation', mode); } catch (e) {}
+    if (window.resizeGame) setTimeout(window.resizeGame, 0);
   }
 
   function getOrientation() { return orientationMode; }
 
   function setAngleRange(maxFraction) {
-    ANGLE_RANGE = Math.PI * THREE.MathUtils.clamp(maxFraction, 0.4, 0.8);
+    ANGLE_RANGE = Math.PI * THREE.MathUtils.clamp(maxFraction, 0.4, 1.0);
   }
 
   function applyOrientation() {
@@ -164,6 +165,11 @@ window.Input = (function () {
       isLandscape = true;
     } else {
       isLandscape = window.innerWidth > window.innerHeight;
+    }
+    if (document.body) {
+      document.body.classList.toggle('force-landscape', orientationMode === 'landscape');
+      document.body.classList.toggle('force-portrait', orientationMode === 'portrait');
+      document.body.classList.toggle('auto-orientation', orientationMode === 'auto');
     }
   }
 

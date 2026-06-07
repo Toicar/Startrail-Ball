@@ -4,10 +4,10 @@ window.HUD = (function () {
 
   var overlay = document.getElementById('hud-overlay');
   var jumpBtn = null;
-  var speedFill, scoreValueEl, comboEl, comboMultEl, buffsEl, livesEl;
-  var lastComboTier = 0;
-  var lastComboCount = 0;
-  var comboPopTimer = null;
+  var speedFill, speedValueEl, scoreValueEl, comboEl, buffsEl, livesEl, boostChipEl, boostLabelEl, boostTimeEl, bestValueEl, distanceEl, timeEl, dashAlertEl;
+  var floatLayer, comboFloatEl;
+  var coinFloatItems = [];
+  var projectedPrompt = new THREE.Vector3();
 
   function assetSrc(src) {
     return (window.AssetData && window.AssetData.images && window.AssetData.images[src]) || ('./image/' + src);
@@ -37,6 +37,13 @@ window.HUD = (function () {
             icon('item_coin.png', '金币') +
             '<span id="hud-score-value">0</span>' +
           '</div>' +
+          '<div class="hud-chip hud-speed-chip">' +
+            '<span>速度</span><strong id="hud-speed-value">0.0m/s</strong>' +
+          '</div>' +
+          '<div id="hud-boost-chip" class="hud-chip hud-boost-chip">' +
+            '<span id="hud-boost-label" class="hud-buff-text">BOOST</span>' +
+            '<strong id="hud-boost-time">0.0s</strong>' +
+          '</div>' +
         '</div>' +
         '<div class="hud-top-right">' +
           '<div class="hud-best-chip"><span>BEST</span><strong id="hud-best-value">' + best + '</strong></div>' +
@@ -45,26 +52,39 @@ window.HUD = (function () {
           '</button>' +
         '</div>' +
       '</div>' +
+      '<div class="hud-metrics">' +
+        '<span>距离 <strong id="hud-distance-value">0m</strong></span>' +
+        '<span>时间 <strong id="hud-time-value">00:00</strong></span>' +
+      '</div>' +
       '<div class="hud-speed-wrap">' +
         '<div class="hud-speed-label">SPEED</div>' +
         '<div class="hud-speed-bar"><div id="hud-speed-fill" class="hud-speed-fill" style="width:0%;"></div></div>' +
       '</div>' +
       '<div id="hud-buffs" class="hud-buffs"></div>' +
-      '<div id="hud-combo" class="hud-combo" aria-hidden="true">' +
-        '<span class="combo-flare" aria-hidden="true"></span>' +
-        '<span class="combo-label">COMBO</span>' +
-        '<strong class="combo-mult">×2</strong>' +
+      '<div id="hud-dash-alert" class="hud-dash-alert">无敌冲刺</div>' +
+      '<div id="hud-combo" class="hud-combo"></div>' +
+      '<div id="hud-float-layer" class="hud-float-layer">' +
+        '<div id="hud-combo-float" class="hud-combo-float"></div>' +
       '</div>' +
       '<button id="hud-jump-btn" class="hud-jump-btn" type="button" aria-label="跳跃" style="display:none;">' +
         '<span class="hud-jump-icon"></span>' +
       '</button>';
 
     speedFill = document.getElementById('hud-speed-fill');
+    speedValueEl = document.getElementById('hud-speed-value');
     scoreValueEl = document.getElementById('hud-score-value');
     comboEl = document.getElementById('hud-combo');
-    comboMultEl = comboEl ? comboEl.querySelector('.combo-mult') : null;
     buffsEl = document.getElementById('hud-buffs');
     livesEl = document.getElementById('hud-lives');
+    boostChipEl = document.getElementById('hud-boost-chip');
+    boostLabelEl = document.getElementById('hud-boost-label');
+    boostTimeEl = document.getElementById('hud-boost-time');
+    bestValueEl = document.getElementById('hud-best-value');
+    distanceEl = document.getElementById('hud-distance-value');
+    timeEl = document.getElementById('hud-time-value');
+    dashAlertEl = document.getElementById('hud-dash-alert');
+    floatLayer = document.getElementById('hud-float-layer');
+    comboFloatEl = document.getElementById('hud-combo-float');
     jumpBtn = document.getElementById('hud-jump-btn');
     if (jumpBtn) {
       jumpBtn.addEventListener('click', function (e) {
@@ -90,69 +110,184 @@ window.HUD = (function () {
     '</span>';
   }
 
+  function formatTime(seconds) {
+    seconds = Math.max(0, Math.floor(seconds || 0));
+    var minutes = Math.floor(seconds / 60);
+    var remain = seconds % 60;
+    return (minutes < 10 ? '0' : '') + minutes + ':' + (remain < 10 ? '0' : '') + remain;
+  }
+
   function update(state) {
     if (!scoreValueEl) return;
     scoreValueEl.textContent = Math.floor(state.score);
     renderLives(state.lives, state.maxLives);
-
-    var maxSpeed = (state.level === 2 && typeof LEVEL2_CONFIG !== 'undefined') ? LEVEL2_CONFIG.SPEED.MAX : CONFIG.BALL.MAX_SPEED;
-    var speedPct = Math.max(0, Math.min(100, Math.floor((state.speed / maxSpeed) * 100)));
-    speedFill.style.width = speedPct + '%';
-
-    if (comboEl) {
-      var tier = 0;
-      var mult = '';
-      if (state.combo >= 15) { tier = 3; mult = '×5'; }
-      else if (state.combo >= 10) { tier = 2; mult = '×3'; }
-      else if (state.combo >= 5) { tier = 1; mult = '×2'; }
-
-      if (tier > 0) {
-        comboEl.className = 'hud-combo visible combo-tier-' + tier;
-        comboEl.setAttribute('aria-hidden', 'false');
-        if (comboMultEl) comboMultEl.textContent = mult;
-        if (tier > lastComboTier || state.combo > lastComboCount) {
-          comboEl.classList.add('combo-pop');
-          if (comboPopTimer) clearTimeout(comboPopTimer);
-          comboPopTimer = setTimeout(function () {
-            if (comboEl) comboEl.classList.remove('combo-pop');
-          }, 420);
-        }
-      } else {
-        comboEl.className = 'hud-combo';
-        comboEl.setAttribute('aria-hidden', 'true');
-        comboEl.classList.remove('combo-pop');
+    if (bestValueEl) {
+      var bestKey = (state.level === 2) ? 'star_tunnel_best_l2' : 'star_tunnel_best';
+      var storedBest = 0;
+      var liveBest = Math.floor(state.score || 0);
+      try { storedBest = parseInt(localStorage.getItem(bestKey) || '0', 10) || 0; } catch (e) {}
+      if (liveBest > storedBest) {
+        try { localStorage.setItem(bestKey, String(liveBest)); } catch (e2) {}
       }
-      lastComboTier = tier;
-      lastComboCount = state.combo;
+      bestValueEl.textContent = Math.max(storedBest, liveBest);
     }
 
+    var speedPct = 0;
+    if (state.level === 2 && typeof LEVEL2_CONFIG !== 'undefined') {
+      speedPct = Math.max(0, Math.min(100, Math.floor((state.speed / LEVEL2_CONFIG.SPEED.MAX) * 100)));
+    } else {
+      var maxStacks = CONFIG.BUFFS.SPEED_BOOST.maxStacks || 3;
+      var stacks = Math.max(0, Math.min(maxStacks, state.speedBoostStacks || 0));
+      var baseSpeed = state.baseSpeed || state.speed || 0;
+      var basePct = Math.min(70, (baseSpeed / CONFIG.BALL.MAX_SPEED) * 70);
+      var stackPct = (stacks / maxStacks) * 30;
+      var dashTime = state.activeBuffs.dashBoost || 0;
+      speedPct = (dashTime > 0 || stacks >= maxStacks) ? 100 : Math.max(0, Math.min(100, Math.floor(basePct + stackPct)));
+    }
+    speedFill.style.width = speedPct + '%';
+    if (speedValueEl) speedValueEl.textContent = (state.speed || 0).toFixed(1) + 'm/s';
+    if (distanceEl) distanceEl.textContent = Math.floor(state.distance) + 'm';
+    if (timeEl) timeEl.textContent = formatTime(state.elapsedTime);
+
+    if (comboEl) comboEl.textContent = '';
+
     var buffs = state.activeBuffs;
+    var boostTime = buffs.speedBoost || 0;
+    var dashTime = buffs.dashBoost || 0;
+    if (dashAlertEl) dashAlertEl.classList.toggle('visible', dashTime > 0);
+    if (boostChipEl) {
+      var showBoost = state.level !== 2 && (boostTime > 0 || dashTime > 0);
+      boostChipEl.style.display = showBoost ? 'inline-flex' : 'none';
+      if (boostLabelEl) boostLabelEl.textContent = dashTime > 0 ? 'DASH' : ('BOOST x' + Math.max(1, state.speedBoostStacks || 0));
+      if (boostTimeEl) boostTimeEl.textContent = (dashTime > 0 ? dashTime : boostTime).toFixed(1) + 's';
+    }
     var html = '';
-    if (buffs.speedBoost > 0) html += buffHTML('boost', '', 'BOOST', buffs.speedBoost.toFixed(1) + 's');
-    if (buffs.magnet > 0) html += buffHTML('magnet', 'item_magnet.png', '磁铁', buffs.magnet.toFixed(1) + 's');
+    if (dashTime > 0) html += buffHTML('magnet', 'item_magnet.png', 'MAGNET', 'ALL');
+    if (dashTime <= 0 && buffs.magnet > 0) html += buffHTML('magnet', 'item_magnet.png', '磁铁', buffs.magnet.toFixed(1) + 's');
     if (state.hasShield) html += buffHTML('shield', 'item_shield.png', '护盾', '');
     if (buffs.scoreDouble > 0) html += buffHTML('double', 'item_double.png', '双倍', buffs.scoreDouble.toFixed(1) + 's');
     buffsEl.innerHTML = html;
   }
 
+  function projectPromptAnchor() {
+    if (!window.camera) return null;
+    var viewport = getFloatViewport();
+    var z = 8.5;
+    var offset = (window.PipeSystem && PipeSystem.getCurveOffsetAt) ? PipeSystem.getCurveOffsetAt(z) : { x: 0, y: 0 };
+    projectedPrompt.set(offset.x, offset.y, z).project(window.camera);
+    if (projectedPrompt.z < -1 || projectedPrompt.z > 1) {
+      return { x: viewport.width * 0.5, y: viewport.height * 0.48, viewport: viewport };
+    }
+    return {
+      x: (projectedPrompt.x * 0.5 + 0.5) * viewport.width,
+      y: (-projectedPrompt.y * 0.5 + 0.5) * viewport.height,
+      viewport: viewport
+    };
+  }
+
+  function getFloatViewport() {
+    var node = floatLayer || overlay;
+    var width = (node && node.clientWidth) || window.innerWidth;
+    var height = (node && node.clientHeight) || window.innerHeight;
+    return { width: width, height: height };
+  }
+
+  function getComboLabel(combo) {
+    if (combo >= 15) return 'COMBO x5';
+    if (combo >= 10) return 'COMBO x3';
+    if (combo >= 5) return 'COMBO x2';
+    return '';
+  }
+
+  function spawnCoinText(points) {
+    if (!floatLayer) return;
+    var el = document.createElement('div');
+    el.className = 'hud-coin-float';
+    el.textContent = '+' + Math.floor(points);
+    floatLayer.appendChild(el);
+    var lane = Math.min(coinFloatItems.length, 3);
+    coinFloatItems.push({
+      el: el,
+      age: 0,
+      life: 0.58,
+      offset: lane * 18,
+      xOffset: lane % 2 === 0 ? 0 : (lane === 1 ? -24 : 24)
+    });
+    while (coinFloatItems.length > 4) {
+      var old = coinFloatItems.shift();
+      if (old.el && old.el.parentNode) old.el.parentNode.removeChild(old.el);
+    }
+  }
+
+  function updateFloating(state, ballPos, dt) {
+    if (!floatLayer || !comboFloatEl) return;
+    var pos = projectPromptAnchor();
+    if (!pos || !state || state.phase !== 'playing') {
+      comboFloatEl.classList.remove('visible');
+      for (var h = 0; h < coinFloatItems.length; h++) coinFloatItems[h].el.style.opacity = 0;
+      return;
+    }
+
+    var viewport = pos.viewport || getFloatViewport();
+    var safeX = Math.max(72, Math.min(viewport.width - 72, pos.x));
+    var safeY = Math.max(96, Math.min(viewport.height - 92, pos.y));
+    var comboText = (state.elapsedTime - state.lastCoinTime <= 0.72) ? getComboLabel(state.combo) : '';
+
+    if (comboText) {
+      comboFloatEl.textContent = comboText;
+      comboFloatEl.style.left = safeX + 'px';
+      comboFloatEl.style.top = (safeY - 16) + 'px';
+      comboFloatEl.classList.add('visible');
+    } else {
+      comboFloatEl.classList.remove('visible');
+    }
+
+    dt = Math.min(dt || 0.016, 0.05);
+    for (var i = coinFloatItems.length - 1; i >= 0; i--) {
+      var item = coinFloatItems[i];
+      item.age += dt;
+      var t = Math.min(1, item.age / item.life);
+      var y = comboText
+        ? safeY + 24 + item.offset * 0.45 - t * 20
+        : safeY + 8 + item.offset * 0.45 - t * 28;
+      item.el.style.left = (safeX + item.xOffset) + 'px';
+      item.el.style.top = y + 'px';
+      item.el.style.opacity = Math.max(0, 0.78 * (1 - t));
+      item.el.style.transform = 'translate(-50%, -50%) scale(' + (1 + 0.12 * (1 - t)) + ')';
+      if (t >= 1) {
+        if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
+        coinFloatItems.splice(i, 1);
+      }
+    }
+  }
+
   function updateComboAnchor(screenX, screenY) {
-    if (!comboEl) return;
-    comboEl.style.left = Math.round(screenX) + 'px';
-    comboEl.style.top = Math.round(screenY) + 'px';
+    if (!comboFloatEl) return;
+    var comboText = '';
+    if (window.STATE) {
+      comboText = (window.STATE.elapsedTime - window.STATE.lastCoinTime <= 0.72)
+        ? getComboLabel(window.STATE.combo) : '';
+    }
+    if (comboText) {
+      comboFloatEl.textContent = comboText;
+      comboFloatEl.style.left = Math.round(screenX) + 'px';
+      comboFloatEl.style.top = Math.round(screenY) + 'px';
+      comboFloatEl.classList.add('visible');
+    } else {
+      comboFloatEl.classList.remove('visible');
+    }
   }
 
   function resetComboUI() {
-    lastComboTier = 0;
-    lastComboCount = 0;
-    if (comboEl) {
-      comboEl.className = 'hud-combo';
-      comboEl.setAttribute('aria-hidden', 'true');
-      comboEl.classList.remove('combo-pop');
-    }
+    if (comboFloatEl) comboFloatEl.classList.remove('visible');
+    coinFloatItems = [];
+    if (floatLayer) floatLayer.innerHTML = '<div id="hud-combo-float" class="hud-combo-float"></div>';
+    comboFloatEl = document.getElementById('hud-combo-float');
   }
 
   return {
     init: init, show: show, hide: hide, update: update,
+    spawnCoinText: spawnCoinText, updateFloating: updateFloating,
     updateComboAnchor: updateComboAnchor, resetComboUI: resetComboUI,
     setJumpVisible: setJumpVisible,
   };

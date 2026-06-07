@@ -12,14 +12,15 @@ const CONFIG = {
     RADIUS: 0.55,
     BASE_SPEED: 6,
     MAX_SPEED: 22,
+    POST_CAP_GAIN_PER_30S: 0.05,
     SPEED_RAMP: 0.8,       // 每秒加速量
     TILT_SENSITIVITY: 0.06,
     PICKUP_RANGE: 0.6,     // 额外拾取范围
   },
   // 45° 车道
   LANES: {
-    ANGLES: [-2.356, -1.571, -0.785, 0, 0.785, 1.571, 2.356],  // -135° to +135°, step 45°
-    COUNT: 7,
+    ANGLES: [-3.142, -2.356, -1.571, -0.785, 0, 0.785, 1.571, 2.356],  // full circle, 45deg lanes
+    COUNT: 8,
   },
   // 物理
   PHYSICS: {
@@ -36,7 +37,7 @@ const CONFIG = {
   ],
   // 道具
   BUFFS: {
-    SPEED_BOOST:  { duration: 2.5,  speedMul: 1.5, stripLength: 5.5 },
+    SPEED_BOOST:  { duration: 3.0,  speedMul: 1.4, maxStacks: 3, dashDuration: 2.0, dashMul: 2.0, dashDecayDuration: 1.5, stripLength: 5.5 },
     MAGNET:       { duration: 5.0,  radius: 9 },
     SHIELD:       { duration: Infinity, hitsBlocked: 1 },
     SCORE_DOUBLE: { duration: 8.0,  multiplier: 2 },
@@ -57,12 +58,12 @@ const CONFIG = {
 
   // 摄像机（按屏幕比例动态调整）
   CAMERA: {
-    PORTRAIT_FOV: 68,
+    PORTRAIT_FOV: 72,
     LANDSCAPE_FOV: 52,
-    PORTRAIT_Z: -10,            // 竖屏拉远避免球出画
-    LANDSCAPE_Z: -7,
-    PORTRAIT_ANGLE_MAX: 0.55,   // ×π ≈ 99°
-    LANDSCAPE_ANGLE_MAX: 0.75,  // ×π ≈ 135°
+    PORTRAIT_Z: -12.5,          // 竖屏拉远避免球出画
+    LANDSCAPE_Z: -8.8,
+    PORTRAIT_ANGLE_MAX: 1.0,
+    LANDSCAPE_ANGLE_MAX: 1.0,
   },
 };
 

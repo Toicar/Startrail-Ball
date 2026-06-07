@@ -17,22 +17,25 @@ window.World = (function () {
   var ITEM_DEFS = {
     coin:             { color: 0xffc107, asset: 'item_coin.png',       size: 0.5,  width: 1.18, height: 1.18, spin: 1.0 },
     magnet:           { color: 0xff4081, asset: 'item_magnet.png',     size: 0.58, width: 1.42, height: 1.16, spin: 0.35 },
-    shield:           { color: 0xffaa00, asset: 'item_shield.png',     size: 0.62, width: 1.42, height: 1.3,  spin: 0.25 },
+    shield:           { color: 0xffaa00, asset: 'item_shield.png',     size: 0.62, width: 1.5,  height: 1.5,  spin: 0.25 },
     scoreX2:          { color: 0xea80fc, asset: 'item_double.png',     size: 0.62, width: 1.42, height: 1.42, spin: 0.45 },
-    spike:            { color: 0xff00cc, asset: 'item_spike.png',      size: 0.7,  width: 1.42, height: 1.42, hazard: true },
+    spike:            { color: 0xff00cc, asset: 'item_spike.png',      size: 0.7,  width: 1.5,  height: 1.5,  hazard: true },
     rotatingBarrier:  { color: 0xff6d00, asset: 'item_barrier.png',    size: 0.78, width: 1.55, height: 1.55, hazard: true, spin: 2.4 },
-    bonusGate:        { color: 0x00e676, asset: 'item_bonus_gate.png', size: 0.95, width: 1.72, height: 1.72, spin: 0.6 },
-    checkpoint:       { color: 0x448aff, asset: 'item_checkpoint.png', size: 0.78, width: 1.5,  height: 1.5,  spin: 0.2 },
+    bonusGate:        { color: 0x00e676, asset: 'item_bonus_gate.png', size: 0.95, width: 1.55, height: 1.55, spin: 0.6 },
   };
 
   function getBallLane() {
     var ballAngle = window.STATE ? window.STATE.ballAngle : 0;
     var closest = 0, minDist = 999;
     for (var i = 0; i < LANES.length; i++) {
-      var d = Math.abs(ballAngle - LANES[i]);
+      var d = angleDiff(ballAngle, LANES[i]);
       if (d < minDist) { minDist = d; closest = i; }
     }
     return closest;
+  }
+
+  function wrapLaneIndex(idx) {
+    return ((idx % LANES.length) + LANES.length) % LANES.length;
   }
 
   function pickLane(biasToBall, spread) {
@@ -40,14 +43,18 @@ window.World = (function () {
       return LANES[Math.floor(Math.random() * LANES.length)];
     }
     var ballLane = getBallLane();
-    var offset = Math.floor((Math.random() - 0.5) * (spread || 3));
-    var idx = THREE.MathUtils.clamp(ballLane + offset, 0, LANES.length - 1);
+    var maxSpread = spread || 3;
+    var offset = Math.floor(Math.random() * (maxSpread * 2 + 1)) - maxSpread;
+    var idx = wrapLaneIndex(ballLane + offset);
     return LANES[idx];
   }
 
+  function normalizeAngle(a) {
+    return Math.atan2(Math.sin(a), Math.cos(a));
+  }
+
   function angleDiff(a, b) {
-    var d = Math.abs(a - b);
-    return d > Math.PI ? 2 * Math.PI - d : d;
+    return Math.abs(normalizeAngle(a - b));
   }
 
   function getBoostArrowMaterial() {
@@ -239,6 +246,7 @@ window.World = (function () {
       mesh: strip,
       type: 'speedBoost',
       z: zCenter,
+      prevZ: zCenter,
       angle: angle,
       collected: false,
       radius: pipeRadius,
@@ -248,7 +256,7 @@ window.World = (function () {
 
   function spawnCoinArc(zCenter, pipeRadius, laneIdx, count, zSpacing) {
     for (var i = 0; i < count; i++) {
-      var angle = LANES[THREE.MathUtils.clamp(laneIdx + i - Math.floor(count / 2), 0, LANES.length - 1)];
+      var angle = LANES[wrapLaneIndex(laneIdx + i - Math.floor(count / 2))];
       placeItem('coin', zCenter + (i - (count - 1) / 2) * zSpacing, angle, pipeRadius);
     }
   }
@@ -265,18 +273,20 @@ window.World = (function () {
     var len = zEnd - zStart;
     var ballLane = getBallLane();
     var segIndex = spawnSerial++;
+    var fairLane = Math.floor(Math.random() * LANES.length);
+    var primaryLane = (segIndex < 2 || Math.random() < 0.42) ? ballLane : fairLane;
 
     if (segIndex < 2 || Math.random() < 0.68) {
       var coinPattern = Math.floor(Math.random() * 3);
       switch (coinPattern) {
         case 0:
-          spawnCoinsOnLane(zStart, zEnd, pipeRadius, ballLane);
+          spawnCoinsOnLane(zStart, zEnd, pipeRadius, primaryLane);
           break;
         case 1:
-          spawnCoinArc(zStart + len * 0.5, pipeRadius, ballLane, 3, 2.15);
+          spawnCoinArc(zStart + len * 0.5, pipeRadius, primaryLane, 3, 2.15);
           break;
         case 2:
-          spawnCoinsOnLane(zStart, zEnd, pipeRadius, THREE.MathUtils.clamp(ballLane + (Math.random() < 0.5 ? -1 : 1), 0, LANES.length - 1), 2);
+          spawnCoinsOnLane(zStart, zEnd, pipeRadius, wrapLaneIndex(primaryLane + (Math.random() < 0.5 ? -1 : 1)), 2);
           break;
       }
     }
@@ -302,42 +312,70 @@ window.World = (function () {
     else if (segIndex % 12 === 7 || buffRoll > 0.93) placeItem('shield', zStart + len * (0.4 + Math.random() * 0.4), pickLane(false), pipeRadius);
     if (segIndex % 11 === 5 || Math.random() < 0.06) placeItem('scoreX2', zStart + len * Math.random(), pickLane(false), pipeRadius);
 
-    if (difficultyLevel >= 2 && Math.random() < 0.35) {
+    var rotatingBarrierChance = 0;
+    if (difficultyLevel >= 3) rotatingBarrierChance = 0.45;
+    else if (difficultyLevel >= 2) rotatingBarrierChance = 0.35;
+    else if (difficultyLevel >= 1) rotatingBarrierChance = 0.18;
+
+    if (rotatingBarrierChance > 0 && Math.random() < rotatingBarrierChance) {
       placeItem('rotatingBarrier', zStart + len * (0.3 + Math.random() * 0.4), pickLane(true, 1), pipeRadius);
     }
 
     if (segIndex % 14 === 8 || Math.random() < 0.05) {
-      placeItem('bonusGate', zStart + len * (0.3 + Math.random() * 0.4), LANES[3], pipeRadius);
+      placeItem('bonusGate', zStart + len * (0.3 + Math.random() * 0.4), 0, pipeRadius);
     }
 
-    if (window.STATE && !window.STATE._cpPlaced) window.STATE._cpPlaced = {};
-    var cpKey = Math.floor((window.STATE ? window.STATE.distance : 0) / (45 * CONFIG.BALL.BASE_SPEED));
-    if (window.STATE && window.STATE._cpPlaced && !window.STATE._cpPlaced[cpKey]) {
-      placeItem('checkpoint', zStart + len * 0.4, 0, pipeRadius);
-      window.STATE._cpPlaced[cpKey] = true;
-    }
   }
 
-  function checkSpeedBoostCollision(item, ballAngle, ballZ) {
-    if (angleDiff(ballAngle, item.angle) > LANE_HALF_ANGLE) return false;
-    var halfStrip = item.stripLength / 2;
-    return Math.abs(ballZ - item.z) <= halfStrip + CONFIG.BALL.RADIUS * 0.35;
+  function checkSpeedBoostCollision(item, ballWorldPos) {
+    tempBallLocalPos.copy(ballWorldPos);
+    group.worldToLocal(tempBallLocalPos);
+
+    var boostOffset = getPipeOffset(item.z);
+    var localX = tempBallLocalPos.x - boostOffset.x;
+    var localY = tempBallLocalPos.y - boostOffset.y;
+    var laneNormalX = Math.sin(item.angle);
+    var laneNormalY = -Math.cos(item.angle);
+    var laneTangentX = Math.cos(item.angle);
+    var laneTangentY = Math.sin(item.angle);
+    var lateral = localX * laneTangentX + localY * laneTangentY;
+    var radial = localX * laneNormalX + localY * laneNormalY;
+
+    var ballR = CONFIG.BALL.RADIUS;
+    var halfWidth = item.radius * LANE_HALF_ANGLE + ballR;
+    if (Math.abs(lateral) > halfWidth) return false;
+
+    var surfaceRadius = item.radius - 0.02;
+    var boxHeight = ballR * 2;
+    var minRadial = surfaceRadius - boxHeight - ballR * 0.2;
+    var maxRadial = surfaceRadius + ballR * 0.35;
+    if (radial < minRadial || radial > maxRadial) return false;
+
+    var halfStrip = item.stripLength / 2 + ballR;
+    var currentMin = item.z - halfStrip;
+    var currentMax = item.z + halfStrip;
+    var prevZ = item.prevZ === undefined ? item.z : item.prevZ;
+    var sweepMin = Math.min(currentMin, prevZ - halfStrip);
+    var sweepMax = Math.max(currentMax, prevZ + halfStrip);
+    return tempBallLocalPos.z >= sweepMin && tempBallLocalPos.z <= sweepMax;
   }
 
   function checkCollisions(ballX, ballY, ballZ) {
     var ballWorldPos = new THREE.Vector3(ballX, ballY, ballZ);
     var results = [];
-    var magnetActive = window.STATE && window.STATE.activeBuffs && window.STATE.activeBuffs.magnet > 0;
-    var magnetRange = magnetActive ? CONFIG.BUFFS.MAGNET.radius : 0;
+    var buffs = window.STATE && window.STATE.activeBuffs ? window.STATE.activeBuffs : {};
+    var dashMagnetActive = buffs.dashBoost > 0;
+    var magnetActive = dashMagnetActive || buffs.magnet > 0;
+    var magnetRange = dashMagnetActive ? 999 : (magnetActive ? CONFIG.BUFFS.MAGNET.radius : 0);
     var itemWorldPos = new THREE.Vector3();
-    var ballAngle = window.STATE ? window.STATE.ballAngle : 0;
 
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       if (item.collected) continue;
 
       if (item.type === 'speedBoost') {
-        if (checkSpeedBoostCollision(item, ballAngle, ballZ)) {
+        if (window.STATE && window.STATE.invincible > 0) continue;
+        if (checkSpeedBoostCollision(item, ballWorldPos)) {
           item.collected = true;
           group.remove(item.mesh);
           disposeItemMesh(item.mesh);
@@ -349,6 +387,7 @@ window.World = (function () {
       item.mesh.getWorldPosition(itemWorldPos);
       var dist = ballWorldPos.distanceTo(itemWorldPos);
       var def = ITEM_DEFS[item.type];
+      if (dashMagnetActive && def && def.hazard) continue;
       var baseRadius = (def ? def.size : 0.5) + CONFIG.BALL.RADIUS + CONFIG.BALL.PICKUP_RANGE;
       var effectiveRadius = baseRadius;
 
@@ -393,11 +432,13 @@ window.World = (function () {
       if (item.collected) { items.splice(i, 1); continue; }
       item.z -= delta;
       if (item.type === 'coin' && item.magnetized &&
-          (!window.STATE || !window.STATE.activeBuffs || window.STATE.activeBuffs.magnet <= 0)) {
+          (!window.STATE || !window.STATE.activeBuffs ||
+            (window.STATE.activeBuffs.magnet <= 0 && window.STATE.activeBuffs.dashBoost <= 0))) {
         item.magnetized = false;
       }
 
       if (item.type === 'speedBoost') {
+        item.prevZ = item.z + delta;
         item.mesh.position.z = item.z;
         var boostOffset = getPipeOffset(item.z);
         item.mesh.position.x = boostOffset.x;
@@ -407,7 +448,7 @@ window.World = (function () {
 
       if (item.type === 'rotatingBarrier') {
         var t = window.STATE ? window.STATE.elapsedTime : 0;
-        var newAngle = item.baseAngle + t * 1.8 + item.z * 0.35;
+        var newAngle = item.baseAngle + t * 0.9 + item.z * 0.175;
         item.angle = newAngle;
         setLanePosition(item, item.z);
         if (item.mesh.userData && item.mesh.userData.billboard) {
@@ -432,7 +473,7 @@ window.World = (function () {
         faceCamera(item.mesh, item.visualSpin);
         continue;
       }
-      if (['magnet', 'shield', 'scoreX2', 'bonusGate', 'checkpoint'].indexOf(item.type) >= 0) {
+      if (['magnet', 'shield', 'scoreX2', 'bonusGate'].indexOf(item.type) >= 0) {
         var t3 = window.STATE ? window.STATE.elapsedTime : 0;
         setLanePosition(item, item.z + Math.sin(t3 * 2.5 + item.angle * 3) * 0.2);
         if (item.mesh.userData && item.mesh.userData.billboard) {

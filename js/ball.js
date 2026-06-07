@@ -5,6 +5,43 @@ window.Ball = (function () {
   var group = new THREE.Group();
   var glowMesh, cockpitMesh, engineGlowMesh;
   var accentMeshes = [];
+  var bodyMeshes = [];
+  var invincibleActive = false;
+
+  function rememberMesh(mesh) {
+    if (mesh) bodyMeshes.push(mesh);
+    return mesh;
+  }
+
+  function setMaterialOpacity(material, opacity) {
+    if (!material) return;
+    if (material.userData.baseOpacity === undefined) {
+      material.userData.baseOpacity = material.opacity === undefined ? 1 : material.opacity;
+      material.userData.baseTransparent = !!material.transparent;
+    }
+    material.transparent = opacity < 0.99 || material.userData.baseTransparent;
+    material.opacity = material.userData.baseOpacity * opacity;
+    material.needsUpdate = true;
+  }
+
+  function restoreMaterialOpacity(material) {
+    if (!material || material.userData.baseOpacity === undefined) return;
+    material.opacity = material.userData.baseOpacity;
+    material.transparent = material.userData.baseTransparent;
+    material.needsUpdate = true;
+  }
+
+  function setBodyOpacity(opacity) {
+    for (var i = 0; i < bodyMeshes.length; i++) {
+      setMaterialOpacity(bodyMeshes[i].material, opacity);
+    }
+  }
+
+  function restoreBodyOpacity() {
+    for (var i = 0; i < bodyMeshes.length; i++) {
+      restoreMaterialOpacity(bodyMeshes[i].material);
+    }
+  }
 
   function init() {
     var r = CONFIG.BALL.RADIUS;
@@ -34,17 +71,17 @@ window.Ball = (function () {
     });
 
     // 球形主舱体
-    var hull = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 24), hullMat);
+    var hull = rememberMesh(new THREE.Mesh(new THREE.SphereGeometry(r, 24, 24), hullMat));
     group.add(hull);
 
     // 赤道结构环
-    var equator = new THREE.Mesh(new THREE.TorusGeometry(r * 1.02, r * 0.055, 8, 32), bandMat);
+    var equator = rememberMesh(new THREE.Mesh(new THREE.TorusGeometry(r * 1.02, r * 0.055, 8, 32), bandMat));
     equator.rotation.x = Math.PI / 2;
     group.add(equator);
     accentMeshes.push(equator);
 
     // 纵向结构环（+Z 为前进方向）
-    var meridian = new THREE.Mesh(new THREE.TorusGeometry(r * 1.015, r * 0.04, 8, 32), trimMat);
+    var meridian = rememberMesh(new THREE.Mesh(new THREE.TorusGeometry(r * 1.015, r * 0.04, 8, 32), trimMat));
     meridian.rotation.y = Math.PI / 2;
     group.add(meridian);
 
@@ -73,7 +110,7 @@ window.Ball = (function () {
     var thrusterAngles = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
     for (var t = 0; t < thrusterAngles.length; t++) {
       var ta = thrusterAngles[t];
-      var thruster = new THREE.Mesh(new THREE.SphereGeometry(r * 0.12, 8, 8), thrusterMat);
+      var thruster = rememberMesh(new THREE.Mesh(new THREE.SphereGeometry(r * 0.12, 8, 8), thrusterMat));
       thruster.position.set(
         Math.cos(ta) * r * 0.72,
         Math.sin(ta) * r * 0.72,
@@ -102,6 +139,26 @@ window.Ball = (function () {
   }
 
   function updateVisuals(time) {
+    if (invincibleActive) {
+      var pulse = (Math.sin(time * Math.PI * 2) + 1) * 0.5;
+      var dim = pulse < 0.48;
+      setBodyOpacity(dim ? 0.52 : 0.82);
+      group.scale.setScalar(0.98 + pulse * 0.08);
+      if (glowMesh) {
+        glowMesh.material.opacity = 0.12 + pulse * 0.26;
+        glowMesh.scale.setScalar(1.0 + pulse * 0.22);
+      }
+      if (cockpitMesh) {
+        cockpitMesh.material.opacity = dim ? 0.34 : 0.82;
+        cockpitMesh.material.emissiveIntensity = 0.9 + pulse * 0.7;
+      }
+      if (engineGlowMesh) {
+        engineGlowMesh.material.opacity = 0.18 + pulse * 0.42;
+        engineGlowMesh.scale.setScalar(0.9 + pulse * 0.22);
+      }
+      return;
+    }
+
     if (engineGlowMesh) {
       engineGlowMesh.material.opacity = 0.4 + Math.sin(time * 6.0) * 0.15;
       engineGlowMesh.scale.setScalar(0.92 + Math.sin(time * 8.0) * 0.08);
@@ -140,9 +197,17 @@ window.Ball = (function () {
   }
 
   function setInvincible(active) {
+    invincibleActive = active;
     if (glowMesh) {
       glowMesh.material.color.setHex(active ? 0xff4444 : 0x00e5ff);
       glowMesh.material.opacity = active ? 0.3 : 0.1;
+      glowMesh.scale.setScalar(1);
+    }
+    if (!active) {
+      restoreBodyOpacity();
+      group.scale.setScalar(1);
+      if (cockpitMesh) cockpitMesh.material.opacity = 0.9;
+      if (engineGlowMesh) engineGlowMesh.material.opacity = 0.5;
     }
     setAccentColor(active ? 0xff4444 : 0x00e5ff);
   }
