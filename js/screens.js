@@ -44,7 +44,7 @@ window.Screens = (function () {
     }
     return '' +
       '<div class="leaderboard-panel">' +
-        '<h3>分数排行榜</h3>' +
+        '<h3>本机历史最高数据</h3>' +
         '<ol>' + rows + '</ol>' +
       '</div>';
   }

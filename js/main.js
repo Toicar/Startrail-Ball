@@ -10,8 +10,11 @@
     lastCoinTime: 0,
     distance: 0,
     speed: CONFIG.BALL.BASE_SPEED,
+    baseSpeed: CONFIG.BALL.BASE_SPEED,
     ballAngle: 0,
     activeBuffs: {},
+    speedBoostStacks: 0,
+    _boostDashTriggered: false,
     hasShield: false,
     elapsedTime: 0,
     difficultyLevel: 0,
@@ -297,7 +300,7 @@
         else if (STATE.combo >= 5) multiplier = CONFIG.SCORE.COMBO_MULTIPLIERS[0];
         var points = CONFIG.SCORE.COIN_BASE * multiplier;
         if (STATE.activeBuffs.scoreDouble > 0) points *= CONFIG.BUFFS.SCORE_DOUBLE.multiplier;
-        if (STATE.activeBuffs.speedBoost > 0) points *= 2;
+        if (STATE.activeBuffs.speedBoost > 0 || STATE.activeBuffs.dashBoost > 0) points *= 2;
         STATE.score += points;
         haptic(10, 55);
         if (window.AudioFX) AudioFX.coinCollect();
@@ -306,8 +309,21 @@
         break;
 
       case 'speedBoost':
+        STATE.speedBoostStacks = Math.min(
+          CONFIG.BUFFS.SPEED_BOOST.maxStacks,
+          (STATE.speedBoostStacks || 0) + 1
+        );
         STATE.activeBuffs.speedBoost = CONFIG.BUFFS.SPEED_BOOST.duration;
-        haptic([22, 18, 35], 120);
+        if (STATE.speedBoostStacks >= CONFIG.BUFFS.SPEED_BOOST.maxStacks && !STATE._boostDashTriggered) {
+          STATE.activeBuffs.dashBoost = CONFIG.BUFFS.SPEED_BOOST.dashDuration;
+          STATE.invincible = Math.max(STATE.invincible || 0, CONFIG.BUFFS.SPEED_BOOST.dashDuration);
+          STATE._boostDashTriggered = true;
+          Ball.setInvincible(true);
+          haptic([18, 18, 35, 18, 65], 160);
+        }
+        if (STATE.speedBoostStacks < CONFIG.BUFFS.SPEED_BOOST.maxStacks) {
+          haptic([22, 18, 35], 120);
+        }
         if (window.AudioFX) AudioFX.powerUp();
         break;
 
@@ -373,6 +389,8 @@
     STATE.lastCoinTime = 0;
     STATE.distance = 0;
     STATE.speed = CONFIG.BALL.BASE_SPEED;
+    STATE.baseSpeed = CONFIG.BALL.BASE_SPEED;
+    STATE.speedBoostStacks = 0;
     STATE.ballAngle = 0;
     STATE.activeBuffs = {};
     STATE.hasShield = false;
@@ -386,6 +404,7 @@
     STATE._lastTunnelFlipAt = -999;
     STATE._tunnelFlip = null;
     STATE._speedCapStartedAt = null;
+    STATE._boostDashTriggered = false;
     applyTunnelRotation(0);
 
     Input.resetAngle();
@@ -413,6 +432,9 @@
     if (window.AudioFX) AudioFX.pauseBGM();
     if (window.HUD) HUD.hide();
     if (window.Input) Input.resetAngle();
+    STATE.activeBuffs = {};
+    STATE.speedBoostStacks = 0;
+    STATE._boostDashTriggered = false;
     if (window.Ball) {
       Ball.setInvincible(false);
       Ball.setShieldActive(false);
@@ -461,7 +483,12 @@
 
       // Buff 速度修正
       var speedMultiplier = 1;
-      if (STATE.activeBuffs.speedBoost > 0) speedMultiplier *= CONFIG.BUFFS.SPEED_BOOST.speedMul;
+      STATE.baseSpeed = baseSpeed;
+      if (STATE.activeBuffs.dashBoost > 0) {
+        speedMultiplier *= CONFIG.BUFFS.SPEED_BOOST.dashMul || 2;
+      } else if (STATE.activeBuffs.speedBoost > 0 && STATE.speedBoostStacks > 0) {
+        speedMultiplier *= 1 + (CONFIG.BUFFS.SPEED_BOOST.speedMul - 1) * STATE.speedBoostStacks;
+      }
 
       var finalSpeed = baseSpeed * speedMultiplier;
       Physics.setSpeed(finalSpeed);
@@ -539,9 +566,14 @@
       // Buff 计时器
       var keys = Object.keys(STATE.activeBuffs);
       for (var k = 0; k < keys.length; k++) {
-        STATE.activeBuffs[keys[k]] -= dt;
-        if (STATE.activeBuffs[keys[k]] <= 0) {
-          delete STATE.activeBuffs[keys[k]];
+        var buffKey = keys[k];
+        STATE.activeBuffs[buffKey] -= dt;
+        if (STATE.activeBuffs[buffKey] <= 0) {
+          delete STATE.activeBuffs[buffKey];
+          if (buffKey === 'speedBoost') {
+            STATE.speedBoostStacks = 0;
+            STATE._boostDashTriggered = false;
+          }
         }
       }
 

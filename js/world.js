@@ -329,17 +329,20 @@ window.World = (function () {
   function checkSpeedBoostCollision(item, ballAngle, ballZ) {
     var laneRadius = item.radius - CONFIG.BALL.RADIUS;
     var lateralDistance = angleDiff(ballAngle, item.angle) * laneRadius;
-    var halfWidth = item.radius * LANE_HALF_ANGLE + CONFIG.BALL.RADIUS * 0.5;
+    var ballEdgeReach = CONFIG.BALL.RADIUS * 1.25;
+    var halfWidth = item.radius * LANE_HALF_ANGLE + ballEdgeReach;
     if (lateralDistance > halfWidth) return false;
     var halfStrip = item.stripLength / 2;
-    return Math.abs(ballZ - item.z) <= halfStrip + CONFIG.BALL.RADIUS * 0.5;
+    return Math.abs(ballZ - item.z) <= halfStrip + ballEdgeReach;
   }
 
   function checkCollisions(ballX, ballY, ballZ) {
     var ballWorldPos = new THREE.Vector3(ballX, ballY, ballZ);
     var results = [];
-    var magnetActive = window.STATE && window.STATE.activeBuffs && window.STATE.activeBuffs.magnet > 0;
-    var magnetRange = magnetActive ? CONFIG.BUFFS.MAGNET.radius : 0;
+    var buffs = window.STATE && window.STATE.activeBuffs ? window.STATE.activeBuffs : {};
+    var dashMagnetActive = buffs.dashBoost > 0;
+    var magnetActive = dashMagnetActive || buffs.magnet > 0;
+    var magnetRange = dashMagnetActive ? 999 : (magnetActive ? CONFIG.BUFFS.MAGNET.radius : 0);
     var itemWorldPos = new THREE.Vector3();
     var ballAngle = window.STATE ? window.STATE.ballAngle : 0;
 
@@ -404,7 +407,8 @@ window.World = (function () {
       if (item.collected) { items.splice(i, 1); continue; }
       item.z -= delta;
       if (item.type === 'coin' && item.magnetized &&
-          (!window.STATE || !window.STATE.activeBuffs || window.STATE.activeBuffs.magnet <= 0)) {
+          (!window.STATE || !window.STATE.activeBuffs ||
+            (window.STATE.activeBuffs.magnet <= 0 && window.STATE.activeBuffs.dashBoost <= 0))) {
         item.magnetized = false;
       }
 

@@ -493,7 +493,7 @@ button, input {
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.86);
   color: #ffe775;
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 1000;
   line-height: 1;
   text-shadow:
@@ -505,15 +505,15 @@ button, input {
 }
 
 .hud-combo-float.visible {
-  opacity: 1;
+  opacity: 0.78;
   transform: translate(-50%, -50%) scale(1);
-  animation: comboPulse 0.58s ease-in-out infinite alternate;
+  animation: comboPulse 0.5s ease-in-out infinite alternate;
 }
 
 .hud-coin-float {
   transform: translate(-50%, -50%);
   color: #ffe45f;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 900;
   line-height: 1;
   text-shadow:

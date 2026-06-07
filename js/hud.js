@@ -3,7 +3,7 @@ window.HUD = (function () {
   'use strict';
 
   var overlay = document.getElementById('hud-overlay');
-  var speedFill, speedValueEl, scoreValueEl, comboEl, buffsEl, livesEl, boostChipEl, boostTimeEl, distanceEl, timeEl;
+  var speedFill, speedValueEl, scoreValueEl, comboEl, buffsEl, livesEl, boostChipEl, boostLabelEl, boostTimeEl, distanceEl, timeEl;
   var floatLayer, comboFloatEl;
   var coinFloatItems = [];
   var projectedPrompt = new THREE.Vector3();
@@ -40,7 +40,7 @@ window.HUD = (function () {
             '<span>速度</span><strong id="hud-speed-value">0.0m/s</strong>' +
           '</div>' +
           '<div id="hud-boost-chip" class="hud-chip hud-boost-chip">' +
-            '<span class="hud-buff-text">极速 x2</span>' +
+            '<span id="hud-boost-label" class="hud-buff-text">BOOST</span>' +
             '<strong id="hud-boost-time">0.0s</strong>' +
           '</div>' +
         '</div>' +
@@ -72,6 +72,7 @@ window.HUD = (function () {
     buffsEl = document.getElementById('hud-buffs');
     livesEl = document.getElementById('hud-lives');
     boostChipEl = document.getElementById('hud-boost-chip');
+    boostLabelEl = document.getElementById('hud-boost-label');
     boostTimeEl = document.getElementById('hud-boost-time');
     distanceEl = document.getElementById('hud-distance-value');
     timeEl = document.getElementById('hud-time-value');
@@ -103,7 +104,13 @@ window.HUD = (function () {
     scoreValueEl.textContent = Math.floor(state.score);
     renderLives(state.lives, state.maxLives);
 
-    var speedPct = Math.max(0, Math.min(100, Math.floor((state.speed / CONFIG.BALL.MAX_SPEED) * 100)));
+    var maxStacks = CONFIG.BUFFS.SPEED_BOOST.maxStacks || 3;
+    var stacks = Math.max(0, Math.min(maxStacks, state.speedBoostStacks || 0));
+    var baseSpeed = state.baseSpeed || state.speed || 0;
+    var basePct = Math.min(70, (baseSpeed / CONFIG.BALL.MAX_SPEED) * 70);
+    var stackPct = (stacks / maxStacks) * 30;
+    var dashTime = state.activeBuffs.dashBoost || 0;
+    var speedPct = (dashTime > 0 || stacks >= maxStacks) ? 100 : Math.max(0, Math.min(100, Math.floor(basePct + stackPct)));
     speedFill.style.width = speedPct + '%';
     if (speedValueEl) speedValueEl.textContent = (state.speed || 0).toFixed(1) + 'm/s';
     if (distanceEl) distanceEl.textContent = Math.floor(state.distance) + 'm';
@@ -114,11 +121,13 @@ window.HUD = (function () {
     var buffs = state.activeBuffs;
     var boostTime = buffs.speedBoost || 0;
     if (boostChipEl) {
-      boostChipEl.style.display = boostTime > 0 ? 'inline-flex' : 'none';
-      if (boostTimeEl) boostTimeEl.textContent = boostTime.toFixed(1) + 's';
+      boostChipEl.style.display = (boostTime > 0 || dashTime > 0) ? 'inline-flex' : 'none';
+      if (boostLabelEl) boostLabelEl.textContent = dashTime > 0 ? 'DASH' : ('BOOST x' + Math.max(1, stacks));
+      if (boostTimeEl) boostTimeEl.textContent = (dashTime > 0 ? dashTime : boostTime).toFixed(1) + 's';
     }
     var html = '';
-    if (buffs.magnet > 0) html += buffHTML('magnet', 'item_magnet.png', '磁铁', buffs.magnet.toFixed(1) + 's');
+    if (dashTime > 0) html += buffHTML('magnet', 'item_magnet.png', 'MAGNET', 'ALL');
+    if (dashTime <= 0 && buffs.magnet > 0) html += buffHTML('magnet', 'item_magnet.png', '磁铁', buffs.magnet.toFixed(1) + 's');
     if (state.hasShield) html += buffHTML('shield', 'item_shield.png', '护盾', '');
     if (buffs.scoreDouble > 0) html += buffHTML('double', 'item_double.png', '双倍', buffs.scoreDouble.toFixed(1) + 's');
     buffsEl.innerHTML = html;
@@ -164,7 +173,7 @@ window.HUD = (function () {
     coinFloatItems.push({
       el: el,
       age: 0,
-      life: 0.92,
+      life: 0.58,
       offset: lane * 18,
       xOffset: lane % 2 === 0 ? 0 : (lane === 1 ? -24 : 24)
     });
@@ -186,7 +195,7 @@ window.HUD = (function () {
     var viewport = pos.viewport || getFloatViewport();
     var safeX = Math.max(72, Math.min(viewport.width - 72, pos.x));
     var safeY = Math.max(96, Math.min(viewport.height - 92, pos.y));
-    var comboText = getComboLabel(state.combo);
+    var comboText = (state.elapsedTime - state.lastCoinTime <= 0.72) ? getComboLabel(state.combo) : '';
 
     if (comboText) {
       comboFloatEl.textContent = comboText;
@@ -207,8 +216,8 @@ window.HUD = (function () {
         : safeY + 8 + item.offset * 0.45 - t * 28;
       item.el.style.left = (safeX + item.xOffset) + 'px';
       item.el.style.top = y + 'px';
-      item.el.style.opacity = Math.max(0, 1 - t);
-      item.el.style.transform = 'translate(-50%, -50%) scale(' + (1 + 0.18 * (1 - t)) + ')';
+      item.el.style.opacity = Math.max(0, 0.78 * (1 - t));
+      item.el.style.transform = 'translate(-50%, -50%) scale(' + (1 + 0.12 * (1 - t)) + ')';
       if (t >= 1) {
         if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
         coinFloatItems.splice(i, 1);
