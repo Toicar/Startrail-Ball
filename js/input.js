@@ -17,6 +17,16 @@ window.Input = (function () {
   var KEYBOARD_RETURN = 5.0;
   var jumpQueued = false;
   var jumpCooldown = 0;
+  var float2DMode = false;
+  var float2DX = 0;
+  var float2DY = 0;
+  var floatGyroX = 0;
+  var floatGyroY = 0;
+
+  function floatKeysActive() {
+    return keysDown['ArrowLeft'] || keysDown['ArrowRight'] ||
+      keysDown['ArrowUp'] || keysDown['ArrowDown'];
+  }
 
   // --- 陀螺仪：横竖屏自适应 + 灵敏度 ---
   function onDeviceOrientation(e) {
@@ -24,6 +34,17 @@ window.Input = (function () {
     if (!useGyro) {
       useGyro = true;
       document.body.classList.add('gyro-mode');
+    }
+    if (float2DMode) {
+      if (floatKeysActive()) return;
+      var beta = e.beta || 0;
+      var gamma = e.gamma || 0;
+      var divisor = 45 / gyroSensitivity;
+      var tiltX = isLandscape ? beta : gamma;
+      var tiltY = isLandscape ? gamma : beta;
+      floatGyroX = THREE.MathUtils.clamp(-tiltX / divisor, -1, 1);
+      floatGyroY = THREE.MathUtils.clamp(-tiltY / divisor, -1, 1);
+      return;
     }
     // 键盘占用时抑制陀螺仪，避免桌面端冲突
     if (keysDown['ArrowLeft'] || keysDown['ArrowRight']) return;
@@ -63,8 +84,9 @@ window.Input = (function () {
   var keysDown = {};
   window.addEventListener('keydown', function (e) {
     keysDown[e.key] = true;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
-    if (e.key === ' ' || e.key === 'ArrowUp') {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+    if (e.key === ' ' || (e.key === 'ArrowUp' && !float2DMode)) {
       e.preventDefault();
       triggerJump();
     }
@@ -74,6 +96,29 @@ window.Input = (function () {
   });
 
   function update(dt) {
+    if (float2DMode) {
+      var tx = 0;
+      var ty = 0;
+      // 与冲刺轨键盘一致：左键 → 正方向（屏幕左移）
+      if (keysDown['ArrowLeft']) tx += 1;
+      if (keysDown['ArrowRight']) tx -= 1;
+      if (keysDown['ArrowUp']) ty += 1;
+      if (keysDown['ArrowDown']) ty -= 1;
+      if (tx !== 0 || ty !== 0) {
+        var len = Math.sqrt(tx * tx + ty * ty);
+        tx /= len;
+        ty /= len;
+        float2DX += (tx - float2DX) * Math.min(KEYBOARD_RESPONSE * dt, 1);
+        float2DY += (ty - float2DY) * Math.min(KEYBOARD_RESPONSE * dt, 1);
+      } else if (useGyro) {
+        float2DX = floatGyroX;
+        float2DY = floatGyroY;
+      } else {
+        float2DX += (0 - float2DX) * Math.min(KEYBOARD_RETURN * dt, 1);
+        float2DY += (0 - float2DY) * Math.min(KEYBOARD_RETURN * dt, 1);
+      }
+      return;
+    }
     // 触屏模式下跳过键盘，其余情况键盘始终可用
     if (touchActive) return;
     var desired = null;
@@ -160,7 +205,29 @@ window.Input = (function () {
 
   function getTargetAngle() { return targetAngle; }
   function getAngleRange() { return ANGLE_RANGE; }
-  function resetAngle() { targetAngle = 0; keyboardActive = false; jumpQueued = false; }
+  function resetAngle() {
+    targetAngle = 0;
+    keyboardActive = false;
+    jumpQueued = false;
+    float2DX = 0;
+    float2DY = 0;
+    floatGyroX = 0;
+    floatGyroY = 0;
+  }
+
+  function setFloat2DMode(on) {
+    if (float2DMode === on) return;
+    float2DMode = !!on;
+    float2DX = 0;
+    float2DY = 0;
+    floatGyroX = 0;
+    floatGyroY = 0;
+    if (!float2DMode) targetAngle = 0;
+  }
+
+  function getFloat2DInput() {
+    return { x: float2DX, y: float2DY };
+  }
 
   function triggerJump() {
     if (jumpCooldown > 0) return;
@@ -185,6 +252,7 @@ window.Input = (function () {
     setGyroSensitivity: setGyroSensitivity, getGyroSensitivity: getGyroSensitivity,
     setOrientation: setOrientation, getOrientation: getOrientation,
     setAngleRange: setAngleRange, applyOrientation: applyOrientation,
+    setFloat2DMode: setFloat2DMode, getFloat2DInput: getFloat2DInput,
     isGyroAvailable: function () { return gyroAvailable; }
   };
 })();

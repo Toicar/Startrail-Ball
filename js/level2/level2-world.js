@@ -1,9 +1,10 @@
-// level2-world.js — 道具沿平底地面放置（faceIndex + 横向 lat + 上下轨 layer）
+// level2-world.js — 道具放置：贴壁段用 lat/radial，浮空段用三角截面本地坐标
 window.Level2World = (function () {
   'use strict';
 
   var group = new THREE.Group();
   var items = [];
+  var ringPortalKeys = {};
   var textureLoader;
   var texCache = {};
   var ITEM_ROOT = './image/';
@@ -29,12 +30,9 @@ window.Level2World = (function () {
     return t;
   }
 
-  // layer 0 = 地面轨，layer 1 = 换轨区上轨
+  // layer 0 = 底轨，layer 1 = 上轨；默认贴内壁，lift 仅作贴图防穿模微抬
   function itemRadial(layer, lift) {
-    var apo = getLevel2Apothem();
-    var r = apo - (lift || 0.4);
-    if (layer === 1) r -= LEVEL2_CONFIG.RINGS.CEIL_RISE;
-    return r;
+    return getLevel2ItemSurfaceRadial(layer, lift);
   }
 
   function addItem(type, absZ, faceIndex, lat, layer, extra) {
@@ -62,14 +60,50 @@ window.Level2World = (function () {
       absZ: absZ, faceIndex: faceIndex,
       lat: lat, radial: radial, layer: layer,
       low: extra.low, ring: extra.ring,
+      ringPortal: extra.ringPortal,
+      collected: false,
+    });
+  }
+
+  function addFloatItem(type, absZ, faceIndex, localX, localY, extra) {
+    var def = DEFS[type];
+    if (!def) return;
+    extra = extra || {};
+    var mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(def.w, def.h),
+      new THREE.MeshBasicMaterial({
+        map: getTex(def.asset),
+        transparent: true,
+        alphaTest: 0.05,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    );
+    mesh.position.set(localX, localY, absZ);
+    mesh.renderOrder = def.hazard ? 12 : 10;
+    group.add(mesh);
+    items.push({
+      mesh: mesh, type: type, def: def,
+      absZ: absZ, faceIndex: faceIndex,
+      isFloat: true, floatLX: localX, floatLY: localY,
       collected: false,
     });
   }
 
   function refreshItemXY(it) {
+    if (it.isFloat) {
+      it.mesh.position.x = it.floatLX;
+      it.mesh.position.y = it.floatLY;
+      return;
+    }
     var p = getLevel2LocalPos(it.faceIndex, it.lat, it.radial);
     it.mesh.position.x = p.x;
     it.mesh.position.y = p.y;
+  }
+
+  function itemWorldXY(it) {
+    if (it.isFloat) return level2LocalToWorldXY(it.floatLX, it.floatLY);
+    return getLevel2WorldPos(it.faceIndex, it.lat, it.radial);
   }
 
   function rndLat(half) {
@@ -81,35 +115,84 @@ window.Level2World = (function () {
     var roll = Math.random();
     var hazardBoost = Math.min((difficulty || 0) * 0.03, 0.1);
     if (roll < 0.5 - hazardBoost) {
-      addItem('coin', z, faceIndex, lanes[(Math.random() * 3) | 0], 0, { lift: 0.45 });
+      addItem('coin', z, faceIndex, lanes[(Math.random() * 3) | 0], 0, { lift: 0.12 });
     } else if (roll < 0.66 + hazardBoost) {
-      addItem('spike', z, faceIndex, lanes[(Math.random() * 3) | 0], 0, {});
+      addItem('spike', z, faceIndex, lanes[(Math.random() * 3) | 0], 0, { lift: 0.08 });
     } else if (roll < 0.78) {
-      addItem('barrier', z, faceIndex, lanes[(Math.random() * 3) | 0], 0, { low: true, lift: 0.25 });
+      addItem('barrier', z, faceIndex, lanes[(Math.random() * 3) | 0], 0, { low: true, lift: 0.1 });
     } else if (roll < 0.88) {
-      addItem('coin', z, faceIndex, 0, 0, { lift: 0.45 });
+      addItem('coin', z, faceIndex, 0, 0, { lift: 0.35 });
     } else if (roll < 0.95) {
-      addItem('magnet', z, faceIndex, 0, 0, { lift: 0.45 });
+      addItem('magnet', z, faceIndex, 0, 0, { lift: 0.12 });
     } else {
-      addItem('shield', z, faceIndex, lanes[(Math.random() * 3) | 0], 0, { lift: 0.45 });
+      addItem('shield', z, faceIndex, lanes[(Math.random() * 3) | 0], 0, { lift: 0.12 });
     }
   }
 
   function spawnRolling(z, faceIndex, difficulty) {
-    var half = LEVEL2_CONFIG.LATERAL_HALF;
     var roll = Math.random();
     var hazardBoost = Math.min((difficulty || 0) * 0.03, 0.1);
-    if (roll < 0.5 - hazardBoost) {
-      addItem('coin', z, faceIndex, rndLat(half), 0, { lift: 0.45 });
-    } else if (roll < 0.66) {
-      addItem('jumpPad', z, faceIndex, 0, 0, {});
-      addItem('coin', z + 2, faceIndex, 0, 0, { lift: 1.1 });
-    } else if (roll < 0.82 + hazardBoost) {
-      addItem('spike', z, faceIndex, rndLat(half), 0, {});
-    } else if (roll < 0.9) {
-      addItem('scoreX2', z, faceIndex, rndLat(half * 0.6), 0, { lift: 0.45 });
+    var pos = randomLevel2TriangleLocal();
+    if (roll < 0.54 - hazardBoost) {
+      addFloatItem('coin', z, faceIndex, pos.x, pos.y);
+    } else if (roll < 0.74 + hazardBoost) {
+      addFloatItem('spike', z, faceIndex, pos.x, pos.y);
+    } else if (roll < 0.86) {
+      pos = randomLevel2TriangleLocal();
+      addFloatItem('scoreX2', z, faceIndex, pos.x, pos.y);
+    } else if (roll < 0.94) {
+      pos = randomLevel2TriangleLocal();
+      addFloatItem('magnet', z, faceIndex, pos.x, pos.y);
     } else {
-      addItem('barrier', z, faceIndex, rndLat(half), 0, {});
+      pos = randomLevel2TriangleLocal();
+      addFloatItem('barrier', z, faceIndex, pos.x, pos.y);
+    }
+  }
+
+  function ringPortalAbsZ(lap, kind) {
+    var el = LEVEL2_CONFIG.EDGE_LENGTH;
+    var tl = LEVEL2_CONFIG.TOTAL_LAP;
+    var inset = LEVEL2_CONFIG.RINGS.PORTAL_INSET;
+    var blend = LEVEL2_CONFIG.VERTEX_BLEND;
+    var ringsIdx = LEVEL2_CONFIG.RINGS.RINGS_FACE_INDEX;
+    var base = lap * tl;
+    if (kind === 'in') return base + ringsIdx * el + inset;
+    return base + (ringsIdx + 1) * el - blend - inset;
+  }
+
+  function isNearRingPortal(absZ) {
+    var tl = LEVEL2_CONFIG.TOTAL_LAP;
+    var lapMin = Math.max(0, Math.floor((absZ - 6) / tl));
+    var lapMax = Math.floor((absZ + 6) / tl) + 1;
+    for (var lap = lapMin; lap <= lapMax; lap++) {
+      if (Math.abs(absZ - ringPortalAbsZ(lap, 'in')) < 5) return true;
+      if (Math.abs(absZ - ringPortalAbsZ(lap, 'out')) < 5) return true;
+    }
+    return false;
+  }
+
+  function tryAddRingPortal(absZ, kind, absStart, absEnd) {
+    var key = absZ + ':' + kind;
+    if (ringPortalKeys[key]) return;
+    if (absZ < absStart || absZ > absEnd) return;
+    var edge = getLevel2EdgeAt(absZ);
+    if (edge.edge.id !== 'rings' || edge.inTransition) return;
+    ringPortalKeys[key] = true;
+    addItem('jumpPad', absZ, LEVEL2_CONFIG.RINGS.RINGS_FACE_INDEX, 0, 0, {
+      lift: 0.08,
+      ringPortal: kind,
+    });
+  }
+
+  function maybeSpawnRingPortals(zStart, zEnd, distance) {
+    var absStart = distance + zStart;
+    var absEnd = distance + zEnd;
+    var tl = LEVEL2_CONFIG.TOTAL_LAP;
+    var lapMin = Math.floor(absStart / tl);
+    var lapMax = Math.floor(absEnd / tl) + 1;
+    for (var lap = lapMin; lap <= lapMax; lap++) {
+      tryAddRingPortal(ringPortalAbsZ(lap, 'in'), 'in', absStart, absEnd);
+      tryAddRingPortal(ringPortalAbsZ(lap, 'out'), 'out', absStart, absEnd);
     }
   }
 
@@ -121,7 +204,7 @@ window.Level2World = (function () {
     if (roll < 0.44 - hazardBoost) {
       var layer = Math.random() < 0.62 ? 0 : 1;
       var h = layer === 1 ? halfCeil : half;
-      addItem('coin', z, faceIndex, rndLat(h), layer, { ring: layer, lift: 0.35 });
+      addItem('coin', z, faceIndex, rndLat(h), layer, { ring: layer, lift: 0.12 });
     } else if (roll < 0.8 + hazardBoost) {
       // 一条轨放障碍，另一条放金币，逼迫换轨
       var blockLayer = Math.random() < 0.5 ? 0 : 1;
@@ -129,21 +212,27 @@ window.Level2World = (function () {
       var bH = blockLayer === 1 ? halfCeil : half;
       var cH = coinLayer === 1 ? halfCeil : half;
       var lat = rndLat(Math.min(bH, cH) * 0.7);
-      addItem('ringBlock', z, faceIndex, lat, blockLayer, { ring: blockLayer });
-      addItem('coin', z, faceIndex, lat, coinLayer, { ring: coinLayer, lift: 0.35 });
+      addItem('ringBlock', z, faceIndex, lat, blockLayer, { ring: blockLayer, lift: 0.08 });
+      addItem('coin', z, faceIndex, lat, coinLayer, { ring: coinLayer, lift: 0.12 });
     } else if (roll < 0.92) {
-      addItem('magnet', z, faceIndex, rndLat(half), 0, { ring: 0, lift: 0.35 });
+      addItem('magnet', z, faceIndex, rndLat(half), 0, { ring: 0, lift: 0.12 });
     } else {
-      addItem('shield', z, faceIndex, rndLat(half), 0, { ring: 0, lift: 0.35 });
+      addItem('shield', z, faceIndex, rndLat(half), 0, { ring: 0, lift: 0.12 });
     }
   }
 
   function populateSegment(zStart, zEnd, edgeId, difficulty, distance, faceIndex) {
     distance = distance || 0;
     faceIndex = faceIndex === undefined ? 0 : faceIndex;
+    maybeSpawnRingPortals(zStart, zEnd, distance);
+
     var z = zStart + 2;
     while (z < zEnd - 1) {
       var absZ = distance + z;
+      if (isNearRingPortal(absZ)) {
+        z += 3;
+        continue;
+      }
       var spawnEdge = getLevel2EdgeAt(absZ);
       if (spawnEdge.index !== faceIndex || spawnEdge.inTransition) {
         z += 3;
@@ -179,6 +268,7 @@ window.Level2World = (function () {
       group.remove(items[0].mesh);
       items.shift();
     }
+    ringPortalKeys = {};
   }
 
   function init() {}
@@ -203,28 +293,38 @@ window.Level2World = (function () {
       var relZ = it.absZ - distance;
       if (Math.abs(relZ) > Math.max(2.5, magnetRange)) continue;
 
-      // 换轨区：只在同一条轨上才判定（切换中放宽）
-      if (edgeId === 'rings' && it.layer !== undefined) {
+      // 换轨区：只在同一条轨上才判定（切换中放宽）；衔接传送门双轨均可触发
+      if (!it.ringPortal && edgeId === 'rings' && it.layer !== undefined) {
         if (it.layer !== ball.ringLayer && ball.ringSwitchT <= 0) continue;
       }
-      // 跳跃可越过的障碍
-      if (edgeId === 'rolling' && (it.type === 'spike' || it.type === 'barrier') && ball.jumpOffset > 0.75) continue;
       if (edgeId === 'subway' && it.low && ball.jumpOffset > LEVEL2_CONFIG.SUBWAY.LOW_BARRIER_H) continue;
 
-      var itemY = -it.radial;
-      var dx = ball.x - it.lat;
-      var dy = ball.y - itemY;
+      var ballW = edgeId === 'rolling'
+        ? { x: ball.x, y: ball.y }
+        : getLevel2WorldPos(faceIndex, ball.lat, ball.radial);
+      var itemW = itemWorldXY(it);
+      var dx = ballW.x - itemW.x;
+      var dy = ballW.y - itemW.y;
       var dist = Math.sqrt(dx * dx + dy * dy + relZ * relZ);
       var pickupRadius = br + (it.def.pickup || 0.55);
 
       if (it.type === 'coin' && magnetActive && dist < magnetRange) {
         var pull = THREE.MathUtils.clamp(0.25 + (1 - dist / magnetRange) * 0.35, 0.25, 0.6);
-        it.lat += (ball.x - it.lat) * pull;
+        if (it.isFloat) {
+          var ballLoc = level2WorldToLocalXY(ball.x, ball.y);
+          it.floatLX += (ballLoc.x - it.floatLX) * pull;
+          it.floatLY += (ballLoc.y - it.floatLY) * pull;
+        } else {
+          var targetLat = getLevel2LatFromWorldX(it.faceIndex, ball.x, it.radial);
+          it.lat += (targetLat - it.lat) * pull;
+        }
         it.absZ += (distance - it.absZ) * pull;
         refreshItemXY(it);
         it.mesh.position.z = it.absZ - distance;
         relZ = it.absZ - distance;
-        dx = ball.x - it.lat;
+        itemW = itemWorldXY(it);
+        dx = ballW.x - itemW.x;
+        dy = ballW.y - itemW.y;
         dist = Math.sqrt(dx * dx + dy * dy + relZ * relZ);
       }
 
@@ -232,7 +332,9 @@ window.Level2World = (function () {
         it.collected = true;
         group.remove(it.mesh);
         results.push({
-          type: it.type, low: it.low, jumpPad: it.def.jumpPad,
+          type: it.type, low: it.low,
+          jumpPad: it.def.jumpPad && !it.ringPortal,
+          ringPortal: it.ringPortal,
           hazard: it.def.hazard || it.def.ringBlock,
         });
       }

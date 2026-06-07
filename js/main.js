@@ -278,6 +278,11 @@
   }
 
   window.mainHandleCollision = function (col) {
+    if (col.ringPortal && window.Level2Controller) {
+      Level2Controller.triggerRingPortal(col.ringPortal);
+      if (window.AudioFX) AudioFX.powerUp();
+      return;
+    }
     if (col.jumpPad && window.Level2Controller) {
       var b = Level2Controller.getBall();
       if (b) {

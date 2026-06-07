@@ -74,63 +74,70 @@ window.Level2Track = (function () {
     return 0.7;
   }
 
-  // 沿地面（z 方向）的细条，placed by 平面坐标
+  // 贴内壁的纵向细条（沿面切线方向铺开，与管壁平行）
   function floorStrip(parent, faceIndex, lat, radial, length, color, opacity, thick) {
     thick = thick || 0.05;
+    var f = getLevel2FaceFrame(faceIndex);
     var box = new THREE.Mesh(
       new THREE.BoxGeometry(thick, thick, length),
       new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity, depthWrite: false })
     );
     var p = getLevel2LocalPos(faceIndex, lat, radial);
     box.position.set(p.x, p.y, 0);
+    box.rotation.z = Math.atan2(f.ty, f.tx);
     parent.add(box);
     return box;
   }
 
+  function wallSurfaceRadial(layer) {
+    return getLevel2ItemSurfaceRadial(layer || 0, 0.04);
+  }
+
   function addLaneMarkers(parent, faceIndex, length, edgeId) {
     if (edgeId !== 'subway') return;
-    var apo = getLevel2Apothem();
+    var wallR = wallSurfaceRadial(0);
     LEVEL2_CONFIG.SUBWAY.LANE_X.forEach(function (lx) {
-      floorStrip(parent, faceIndex, lx, apo, length * 0.92, 0x00e5ff, 0.3, 0.05);
+      floorStrip(parent, faceIndex, lx, wallR, length * 0.92, 0x00e5ff, 0.3, 0.05);
     });
   }
 
-  // 换轨区：地面上方的平行上轨平台 + 亮边
+  // 换轨区：底轨 + 上轨平行贴壁，两侧栅栏
   function addCeilingRail(parent, faceIndex, length, edgeId) {
     if (edgeId !== 'rings') return;
-    var apo = getLevel2Apothem();
     var halfCeil = LEVEL2_CONFIG.RINGS.LATERAL_HALF_CEIL;
-    var radial = apo - LEVEL2_CONFIG.RINGS.CEIL_RISE;
+    var ceilR = wallSurfaceRadial(1);
+    var floorR = wallSurfaceRadial(0);
     var f = getLevel2FaceFrame(faceIndex);
     var plat = new THREE.Mesh(
       new THREE.BoxGeometry(halfCeil * 2 + 0.5, 0.07, length * 0.95),
       new THREE.MeshBasicMaterial({ color: 0xaa66ff, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })
     );
-    var p = getLevel2LocalPos(faceIndex, 0, radial);
+    var p = getLevel2LocalPos(faceIndex, 0, ceilR);
     plat.position.set(p.x, p.y, 0);
-    plat.rotation.z = f.psi + Math.PI / 2;
+    plat.rotation.z = Math.atan2(f.ty, f.tx);
     parent.add(plat);
-    floorStrip(parent, faceIndex, -halfCeil, radial, length * 0.95, 0xcf8bff, 0.5, 0.06);
-    floorStrip(parent, faceIndex, halfCeil, radial, length * 0.95, 0xcf8bff, 0.5, 0.06);
-    // 地面轨亮边
-    floorStrip(parent, faceIndex, -LEVEL2_CONFIG.LATERAL_HALF, apo, length * 0.95, 0x00e5ff, 0.4, 0.06);
-    floorStrip(parent, faceIndex, LEVEL2_CONFIG.LATERAL_HALF, apo, length * 0.95, 0x00e5ff, 0.4, 0.06);
+    floorStrip(parent, faceIndex, -halfCeil, ceilR, length * 0.95, 0xcf8bff, 0.5, 0.06);
+    floorStrip(parent, faceIndex, halfCeil, ceilR, length * 0.95, 0xcf8bff, 0.5, 0.06);
+    var edgeHalf = Math.min(LEVEL2_CONFIG.LATERAL_HALF, getLevel2FaceHalfWidth(0));
+    floorStrip(parent, faceIndex, -edgeHalf, floorR, length * 0.95, 0x00e5ff, 0.4, 0.06);
+    floorStrip(parent, faceIndex, edgeHalf, floorR, length * 0.95, 0x00e5ff, 0.4, 0.06);
   }
 
-  // 区域交界：亮色 ▲ 门（横向亮条，颜色取下一区域）
+  // 区域交界：亮色门横条，贴当前底面内壁
   function addGate(parent, faceIndex, zLocal, color) {
-    var apo = getLevel2Apothem();
+    var wallR = wallSurfaceRadial(0);
     var f = getLevel2FaceFrame(faceIndex);
+    var edgeHalf = Math.min(LEVEL2_CONFIG.LATERAL_HALF, getLevel2FaceHalfWidth(0));
     for (var k = 0; k < 3; k++) {
-      var width = (LEVEL2_CONFIG.LATERAL_HALF + 0.4) * 2 * (1 - k * 0.18);
+      var width = (edgeHalf + 0.4) * 2 * (1 - k * 0.18);
       var bar = new THREE.Mesh(
         new THREE.BoxGeometry(width, 0.12, 0.12),
         new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.85 - k * 0.18, depthWrite: false })
       );
-      var radial = apo - k * 0.55;
+      var radial = wallR - k * 0.12;
       var p = getLevel2LocalPos(faceIndex, 0, radial);
       bar.position.set(p.x, p.y, zLocal - k * 0.5);
-      bar.rotation.z = f.psi + Math.PI / 2;
+      bar.rotation.z = Math.atan2(f.ty, f.tx);
       parent.add(bar);
     }
   }
