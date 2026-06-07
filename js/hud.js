@@ -170,9 +170,7 @@ window.HUD = (function () {
   }
 
   function getComboLabel(combo) {
-    if (combo >= 15) return 'COMBO x5';
-    if (combo >= 10) return 'COMBO x3';
-    if (combo >= 5) return 'COMBO x2';
+    if (combo >= 2) return 'COMBO +' + combo;
     return '';
   }
 
@@ -181,14 +179,16 @@ window.HUD = (function () {
     var el = document.createElement('div');
     el.className = 'hud-coin-float';
     el.textContent = '+' + Math.floor(points);
+    el.style.color = points >= 50 ? '#ff7ab6' : (points >= 20 ? '#76fff0' : '#ffe45f');
     floatLayer.appendChild(el);
     var lane = Math.min(coinFloatItems.length, 3);
     coinFloatItems.push({
       el: el,
       age: 0,
-      life: 0.58,
-      offset: lane * 18,
-      xOffset: lane % 2 === 0 ? 0 : (lane === 1 ? -24 : 24)
+      life: 0.46,
+      offset: lane * 14,
+      xOffset: lane % 2 === 0 ? 0 : (lane === 1 ? -18 : 18),
+      seed: Math.random() * 6.28
     });
     while (coinFloatItems.length > 4) {
       var old = coinFloatItems.shift();
@@ -208,15 +208,27 @@ window.HUD = (function () {
     var viewport = pos.viewport || getFloatViewport();
     var safeX = Math.max(72, Math.min(viewport.width - 72, pos.x));
     var safeY = Math.max(96, Math.min(viewport.height - 92, pos.y));
-    var comboText = (state.elapsedTime - state.lastCoinTime <= 0.72) ? getComboLabel(state.combo) : '';
+    var comboAge = state.elapsedTime - state.lastCoinTime;
+    var comboLife = 0.5;
+    var comboText = (comboAge <= comboLife) ? getComboLabel(state.combo) : '';
 
     if (comboText) {
+      var comboT = Math.max(0, Math.min(1, comboAge / comboLife));
+      var comboFade = Math.min(1, comboT / 0.16) * (1 - comboT);
+      var comboShake = Math.max(0, 1 - comboT / 0.32);
+      var comboShakeX = Math.sin(comboT * 72) * 3 * comboShake;
+      var comboShakeY = Math.cos(comboT * 63) * 2 * comboShake;
+      var comboColors = ['#ffe45f', '#76fff0', '#ff7ab6'];
       comboFloatEl.textContent = comboText;
-      comboFloatEl.style.left = safeX + 'px';
-      comboFloatEl.style.top = (safeY - 16) + 'px';
+      comboFloatEl.style.color = comboColors[Math.min(2, Math.floor(state.combo / 6) % comboColors.length)];
+      comboFloatEl.style.left = (safeX + comboShakeX) + 'px';
+      comboFloatEl.style.top = (safeY - 18 + comboShakeY) + 'px';
+      comboFloatEl.style.opacity = Math.max(0, comboFade);
+      comboFloatEl.style.transform = 'translate(-50%, -50%) scale(' + (0.88 + 0.16 * (1 - comboT)) + ')';
       comboFloatEl.classList.add('visible');
     } else {
       comboFloatEl.classList.remove('visible');
+      comboFloatEl.style.opacity = 0;
     }
 
     dt = Math.min(dt || 0.016, 0.05);
@@ -224,13 +236,17 @@ window.HUD = (function () {
       var item = coinFloatItems[i];
       item.age += dt;
       var t = Math.min(1, item.age / item.life);
+      var fade = Math.min(1, t / 0.18) * (1 - t);
+      var shake = Math.max(0, 1 - t / 0.42);
+      var shakeX = Math.sin(item.seed + t * 84) * 3.2 * shake;
+      var shakeY = Math.cos(item.seed + t * 76) * 2.4 * shake;
       var y = comboText
-        ? safeY + 24 + item.offset * 0.45 - t * 20
-        : safeY + 8 + item.offset * 0.45 - t * 28;
-      item.el.style.left = (safeX + item.xOffset) + 'px';
+        ? safeY + 16 + item.offset * 0.38 - t * 18
+        : safeY + 6 + item.offset * 0.38 - t * 24;
+      item.el.style.left = (safeX + item.xOffset + shakeX) + 'px';
       item.el.style.top = y + 'px';
-      item.el.style.opacity = Math.max(0, 0.78 * (1 - t));
-      item.el.style.transform = 'translate(-50%, -50%) scale(' + (1 + 0.12 * (1 - t)) + ')';
+      item.el.style.opacity = Math.max(0, 0.98 * fade);
+      item.el.style.transform = 'translate(-50%, -50%) scale(' + (0.88 + 0.16 * (1 - t)) + ')';
       if (t >= 1) {
         if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
         coinFloatItems.splice(i, 1);

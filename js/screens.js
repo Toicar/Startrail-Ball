@@ -56,7 +56,7 @@ window.Screens = (function () {
       ['item_shield.png', '护盾', '抵挡一次伤害'],
       ['item_double.png', '双倍', '限时分数翻倍'],
       ['item_bonus_gate.png', '宝箱', '触发金币奖励'],
-      ['item_spike.png', '地刺', '碰到会扣血'],
+      ['item_spike.png', '炸弹', '碰到会扣血'],
       ['item_barrier.png', '旋转障碍', '环绕移动障碍']
     ];
     var html = '<div class="item-preview" aria-label="道具预览">';
@@ -74,7 +74,7 @@ window.Screens = (function () {
       '<div class="rules-panel">' +
         '<div class="rules-section rules-primary">' +
           '<h3>任务目标</h3>' +
-          '<p>在星轨管道中尽可能跑得更远，收集金币，躲开地刺和旋转障碍。</p>' +
+          '<p>在星轨管道中尽可能跑得更远，收集金币，躲开炸弹和旋转障碍。</p>' +
         '</div>' +
         '<div class="rules-grid">' +
           '<div class="rules-section">' +

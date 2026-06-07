@@ -472,7 +472,7 @@ button, input {
   opacity: 0;
   pointer-events: none;
   color: #061120;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 1000;
   line-height: 1;
   text-align: center;
@@ -524,19 +524,20 @@ button, input {
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.86);
   color: #ffe775;
-  font-size: 21px;
+  font-size: 19px;
   font-weight: 1000;
   line-height: 1;
   text-shadow:
-    0 2px 0 rgba(92, 42, 0, 0.55),
-    0 0 12px rgba(255, 237, 125, 0.95),
-    0 0 30px rgba(255, 85, 124, 0.42);
-  -webkit-text-stroke: 1px rgba(86, 44, 4, 0.42);
+    0 2px 0 rgba(92, 42, 0, 0.92),
+    0 0 15px rgba(255, 237, 125, 1),
+    0 0 34px rgba(255, 85, 124, 0.62),
+    0 0 2px rgba(255, 255, 255, 0.9);
+  -webkit-text-stroke: 1.1px rgba(63, 31, 0, 0.78);
   transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
 .hud-combo-float.visible {
-  opacity: 0.62;
+  opacity: 1;
   transform: translate(-50%, -50%) scale(1);
   animation: comboPulse 0.5s ease-in-out infinite alternate;
 }
@@ -548,15 +549,16 @@ button, input {
   font-weight: 900;
   line-height: 1;
   text-shadow:
-    0 2px 0 rgba(95, 50, 0, 0.5),
-    0 0 10px rgba(255, 228, 95, 0.95),
-    0 0 24px rgba(255, 181, 41, 0.56);
-  -webkit-text-stroke: 1px rgba(82, 43, 0, 0.38);
+    0 2px 0 rgba(95, 50, 0, 0.92),
+    0 0 13px rgba(255, 228, 95, 1),
+    0 0 28px rgba(255, 181, 41, 0.76),
+    0 0 2px rgba(255, 255, 255, 0.86);
+  -webkit-text-stroke: 1.1px rgba(72, 36, 0, 0.76);
 }
 
 @keyframes comboPulse {
-  from { filter: brightness(1); }
-  to { filter: brightness(1.22); }
+  from { filter: brightness(0.96); }
+  to { filter: brightness(1.14); }
 }
 
 @keyframes dashAlertPulse {
@@ -1145,29 +1147,31 @@ body.force-landscape .death-card .btn-secondary {
     top: 30%;
     min-width: 138px;
     padding: 7px 13px;
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .hud-combo-float {
-    font-size: 18px;
+    font-size: 16px;
     text-shadow:
-      0 1px 0 rgba(92, 42, 0, 0.42),
-      0 0 9px rgba(255, 237, 125, 0.72),
-      0 0 20px rgba(255, 85, 124, 0.28);
-    -webkit-text-stroke: 0.5px rgba(86, 44, 4, 0.32);
+      0 1px 0 rgba(92, 42, 0, 0.88),
+      0 0 12px rgba(255, 237, 125, 1),
+      0 0 24px rgba(255, 85, 124, 0.58),
+      0 0 2px rgba(255, 255, 255, 0.88);
+    -webkit-text-stroke: 0.8px rgba(63, 31, 0, 0.7);
   }
 
   .hud-combo-float.visible {
-    opacity: 0.54;
+    opacity: 0.95;
   }
 
   .hud-coin-float {
     font-size: 16px;
     text-shadow:
-      0 1px 0 rgba(95, 50, 0, 0.38),
-      0 0 8px rgba(255, 228, 95, 0.72),
-      0 0 16px rgba(255, 181, 41, 0.36);
-    -webkit-text-stroke: 0.5px rgba(82, 43, 0, 0.28);
+      0 1px 0 rgba(95, 50, 0, 0.86),
+      0 0 11px rgba(255, 228, 95, 1),
+      0 0 21px rgba(255, 181, 41, 0.64),
+      0 0 2px rgba(255, 255, 255, 0.84);
+    -webkit-text-stroke: 0.8px rgba(72, 36, 0, 0.66);
   }
 
   #screen-overlay {

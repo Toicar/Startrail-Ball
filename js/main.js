@@ -597,7 +597,7 @@
       }
 
       // Combo 超时
-      if (STATE.elapsedTime - STATE.lastCoinTime > 1.5) {
+      if (STATE.elapsedTime - STATE.lastCoinTime > 0.5) {
         STATE.combo = 0;
       }
 
