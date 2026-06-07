@@ -178,7 +178,7 @@ window.Screens = (function () {
     }
     var newBestHTML = isNewBest ? '<p class="modal-highlight">新纪录</p>' : '';
     show(
-      '<div class="modal-card">' +
+      '<div class="modal-card death-card">' +
         '<h2 class="modal-title death">航线中断</h2>' +
         '<div class="modal-score"><img src="' + assetSrc('item_coin.png') + '" alt="金币"><span>' + Math.floor(score) + '</span></div>' +
         newBestHTML +

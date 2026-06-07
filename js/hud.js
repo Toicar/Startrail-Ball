@@ -126,16 +126,25 @@ window.HUD = (function () {
 
   function projectPromptAnchor() {
     if (!window.camera) return null;
+    var viewport = getFloatViewport();
     var z = 8.5;
     var offset = (window.PipeSystem && PipeSystem.getCurveOffsetAt) ? PipeSystem.getCurveOffsetAt(z) : { x: 0, y: 0 };
     projectedPrompt.set(offset.x, offset.y, z).project(window.camera);
     if (projectedPrompt.z < -1 || projectedPrompt.z > 1) {
-      return { x: window.innerWidth * 0.5, y: window.innerHeight * 0.48 };
+      return { x: viewport.width * 0.5, y: viewport.height * 0.48, viewport: viewport };
     }
     return {
-      x: (projectedPrompt.x * 0.5 + 0.5) * window.innerWidth,
-      y: (-projectedPrompt.y * 0.5 + 0.5) * window.innerHeight
+      x: (projectedPrompt.x * 0.5 + 0.5) * viewport.width,
+      y: (-projectedPrompt.y * 0.5 + 0.5) * viewport.height,
+      viewport: viewport
     };
+  }
+
+  function getFloatViewport() {
+    var node = floatLayer || overlay;
+    var width = (node && node.clientWidth) || window.innerWidth;
+    var height = (node && node.clientHeight) || window.innerHeight;
+    return { width: width, height: height };
   }
 
   function getComboLabel(combo) {
@@ -174,8 +183,9 @@ window.HUD = (function () {
       return;
     }
 
-    var safeX = Math.max(72, Math.min(window.innerWidth - 72, pos.x));
-    var safeY = Math.max(96, Math.min(window.innerHeight - 92, pos.y));
+    var viewport = pos.viewport || getFloatViewport();
+    var safeX = Math.max(72, Math.min(viewport.width - 72, pos.x));
+    var safeY = Math.max(96, Math.min(viewport.height - 92, pos.y));
     var comboText = getComboLabel(state.combo);
 
     if (comboText) {

@@ -18,6 +18,7 @@ button, input {
 }
 
 #game-container {
+  --game-rotate: 0deg;
   position: relative;
   width: 100%;
   height: 100%;
@@ -31,7 +32,8 @@ button, input {
     left: 100vw;
     width: 100vh;
     height: 100vw;
-    transform: rotate(90deg);
+    --game-rotate: 90deg;
+    transform: rotate(var(--game-rotate));
     transform-origin: top left;
   }
 
@@ -78,7 +80,8 @@ button, input {
     left: 0;
     width: 100vh;
     height: 100vw;
-    transform: rotate(-90deg);
+    --game-rotate: -90deg;
+    transform: rotate(var(--game-rotate));
     transform-origin: top left;
   }
 }
@@ -101,13 +104,13 @@ button, input {
 }
 
 @keyframes damageShake {
-  0% { transform: translate3d(0, 0, 0); filter: none; }
-  15% { transform: translate3d(-7px, 4px, 0); filter: saturate(1.25); }
-  30% { transform: translate3d(6px, -3px, 0); }
-  45% { transform: translate3d(-5px, -2px, 0); }
-  60% { transform: translate3d(4px, 3px, 0); }
-  80% { transform: translate3d(-2px, 1px, 0); }
-  100% { transform: translate3d(0, 0, 0); filter: none; }
+  0% { transform: translate3d(0, 0, 0) rotate(var(--game-rotate)); filter: none; }
+  15% { transform: translate3d(-7px, 4px, 0) rotate(var(--game-rotate)); filter: saturate(1.25); }
+  30% { transform: translate3d(6px, -3px, 0) rotate(var(--game-rotate)); }
+  45% { transform: translate3d(-5px, -2px, 0) rotate(var(--game-rotate)); }
+  60% { transform: translate3d(4px, 3px, 0) rotate(var(--game-rotate)); }
+  80% { transform: translate3d(-2px, 1px, 0) rotate(var(--game-rotate)); }
+  100% { transform: translate3d(0, 0, 0) rotate(var(--game-rotate)); filter: none; }
 }
 
 #game-canvas {
@@ -1021,6 +1024,57 @@ button, input {
 
 .modal-card .leaderboard-panel ol {
   grid-template-columns: 1fr;
+}
+
+body.force-landscape .death-card {
+  width: min(660px, calc(100% - 28px));
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  padding: 16px 18px;
+}
+
+body.force-landscape .death-card .modal-title {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+body.force-landscape .death-card .modal-score {
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+
+body.force-landscape .death-card .modal-score img {
+  width: 34px;
+  height: 34px;
+}
+
+body.force-landscape .death-card .modal-stat-sub {
+  margin-bottom: 8px;
+}
+
+body.force-landscape .death-card .leaderboard-panel {
+  max-width: 520px;
+  margin: 8px auto 10px;
+  padding: 10px 12px;
+}
+
+body.force-landscape .death-card .leaderboard-panel ol {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.force-landscape .death-card .leaderboard-panel li {
+  min-height: 20px;
+}
+
+body.force-landscape .death-card .btn-primary,
+body.force-landscape .death-card .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(50% - 8px);
+  max-width: 220px;
+  min-height: 38px;
+  margin: 4px 4px 0;
 }
 
 @media (orientation: landscape) {
