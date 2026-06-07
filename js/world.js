@@ -327,19 +327,37 @@ window.World = (function () {
 
   }
 
-  function checkSpeedBoostCollision(item, ballAngle, ballZ) {
-    var laneRadius = item.radius - CONFIG.BALL.RADIUS;
-    var lateralDistance = angleDiff(ballAngle, item.angle) * laneRadius;
-    var ballEdgeReach = CONFIG.BALL.RADIUS * 1.75;
-    var halfWidth = item.radius * LANE_HALF_ANGLE + ballEdgeReach;
-    if (lateralDistance > halfWidth) return false;
-    var halfStrip = item.stripLength / 2;
-    var currentMin = item.z - halfStrip - ballEdgeReach;
-    var currentMax = item.z + halfStrip + ballEdgeReach;
+  function checkSpeedBoostCollision(item, ballWorldPos) {
+    tempBallLocalPos.copy(ballWorldPos);
+    group.worldToLocal(tempBallLocalPos);
+
+    var boostOffset = getPipeOffset(item.z);
+    var localX = tempBallLocalPos.x - boostOffset.x;
+    var localY = tempBallLocalPos.y - boostOffset.y;
+    var laneNormalX = Math.sin(item.angle);
+    var laneNormalY = -Math.cos(item.angle);
+    var laneTangentX = Math.cos(item.angle);
+    var laneTangentY = Math.sin(item.angle);
+    var lateral = localX * laneTangentX + localY * laneTangentY;
+    var radial = localX * laneNormalX + localY * laneNormalY;
+
+    var ballR = CONFIG.BALL.RADIUS;
+    var halfWidth = item.radius * LANE_HALF_ANGLE + ballR;
+    if (Math.abs(lateral) > halfWidth) return false;
+
+    var surfaceRadius = item.radius - 0.02;
+    var boxHeight = ballR * 2;
+    var minRadial = surfaceRadius - boxHeight - ballR * 0.2;
+    var maxRadial = surfaceRadius + ballR * 0.35;
+    if (radial < minRadial || radial > maxRadial) return false;
+
+    var halfStrip = item.stripLength / 2 + ballR;
+    var currentMin = item.z - halfStrip;
+    var currentMax = item.z + halfStrip;
     var prevZ = item.prevZ === undefined ? item.z : item.prevZ;
-    var sweepMin = Math.min(currentMin, prevZ - halfStrip - ballEdgeReach);
-    var sweepMax = Math.max(currentMax, prevZ + halfStrip + ballEdgeReach);
-    return ballZ >= sweepMin && ballZ <= sweepMax;
+    var sweepMin = Math.min(currentMin, prevZ - halfStrip);
+    var sweepMax = Math.max(currentMax, prevZ + halfStrip);
+    return tempBallLocalPos.z >= sweepMin && tempBallLocalPos.z <= sweepMax;
   }
 
   function checkCollisions(ballX, ballY, ballZ) {
@@ -350,7 +368,6 @@ window.World = (function () {
     var magnetActive = dashMagnetActive || buffs.magnet > 0;
     var magnetRange = dashMagnetActive ? 999 : (magnetActive ? CONFIG.BUFFS.MAGNET.radius : 0);
     var itemWorldPos = new THREE.Vector3();
-    var ballAngle = window.STATE ? window.STATE.ballAngle : 0;
 
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
@@ -358,7 +375,7 @@ window.World = (function () {
 
       if (item.type === 'speedBoost') {
         if (window.STATE && window.STATE.invincible > 0) continue;
-        if (checkSpeedBoostCollision(item, ballAngle, ballZ)) {
+        if (checkSpeedBoostCollision(item, ballWorldPos)) {
           item.collected = true;
           group.remove(item.mesh);
           disposeItemMesh(item.mesh);
