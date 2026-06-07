@@ -35,8 +35,22 @@ window.Input = (function () {
   }
 
   // --- 触屏：虚拟摇杆 ---
+  function shouldUseTouchControls(e) {
+    if (window.STATE && window.STATE.phase !== 'playing') return false;
+    var target = e && e.target;
+    if (target && target.closest &&
+        target.closest('#screen-overlay, button, input, select, textarea, a')) {
+      return false;
+    }
+    return true;
+  }
+
   function onTouchStart(e) {
     if (useGyro) return;
+    if (!shouldUseTouchControls(e)) {
+      touchActive = false;
+      return;
+    }
     e.preventDefault();
     touchActive = true;
     touchStartX = e.touches[0].clientX;
