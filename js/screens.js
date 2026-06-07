@@ -22,9 +22,16 @@ window.Screens = (function () {
     return (window.AssetData && window.AssetData.images && window.AssetData.images[src]) || ('./image/' + src);
   }
 
-  function getScoreBoard() {
+  var leaderboardLevel = 1;
+
+  function scoreBoardKey(level) {
+    return level === 2 ? 'star_tunnel_scoreboard_l2' : 'star_tunnel_scoreboard';
+  }
+
+  function getScoreBoard(level) {
+    level = level || 1;
     var raw = [];
-    try { raw = JSON.parse(localStorage.getItem('star_tunnel_scoreboard') || '[]'); } catch (e) { raw = []; }
+    try { raw = JSON.parse(localStorage.getItem(scoreBoardKey(level)) || '[]'); } catch (e) { raw = []; }
     if (!Array.isArray(raw)) raw = [];
     return raw
       .map(function (score) { return Math.floor(Number(score) || 0); })
@@ -33,8 +40,8 @@ window.Screens = (function () {
       .slice(0, 10);
   }
 
-  function leaderboardHTML() {
-    var scores = getScoreBoard();
+  function buildLeaderboardListHTML(level) {
+    var scores = getScoreBoard(level);
     var rows = '';
     for (var i = 0; i < 10; i++) {
       var value = scores[i] || 0;
@@ -42,11 +49,34 @@ window.Screens = (function () {
         '<span>' + (i + 1) + '</span><strong>' + (value ? value : '--') + '</strong>' +
       '</li>';
     }
+    return '<ol>' + rows + '</ol>';
+  }
+
+  function leaderboardHTML(defaultLevel) {
+    defaultLevel = defaultLevel || 1;
+    leaderboardLevel = defaultLevel;
     return '' +
-      '<div class="leaderboard-panel">' +
+      '<div class="leaderboard-panel" id="leaderboard-panel">' +
         '<h3>本机历史最高数据</h3>' +
-        '<ol>' + rows + '</ol>' +
+        '<div class="leaderboard-tabs">' +
+          '<button type="button" class="lb-tab' + (defaultLevel === 1 ? ' active' : '') +
+            '" data-level="1" onclick="window.Screens._setLeaderboardLevel(1)">第一关</button>' +
+          '<button type="button" class="lb-tab' + (defaultLevel === 2 ? ' active' : '') +
+            '" data-level="2" onclick="window.Screens._setLeaderboardLevel(2)">第二关</button>' +
+        '</div>' +
+        '<div id="leaderboard-list-wrap">' + buildLeaderboardListHTML(defaultLevel) + '</div>' +
       '</div>';
+  }
+
+  function _setLeaderboardLevel(level) {
+    leaderboardLevel = level;
+    var wrap = document.getElementById('leaderboard-list-wrap');
+    if (wrap) wrap.innerHTML = buildLeaderboardListHTML(level);
+    var tabs = document.querySelectorAll('.lb-tab');
+    for (var i = 0; i < tabs.length; i++) {
+      var tabLevel = parseInt(tabs[i].getAttribute('data-level'), 10);
+      tabs[i].classList.toggle('active', tabLevel === level);
+    }
   }
 
   function itemPreviewHTML() {
@@ -197,7 +227,7 @@ window.Screens = (function () {
         newBestHTML +
         '<p class="modal-stat">最高分 ' + Math.max(score, bestScore) + '</p>' +
         '<p class="modal-stat-sub">' + Math.floor(distance) + 'm · ' + Math.floor(elapsedTime) + 's</p>' +
-        leaderboardHTML() +
+        leaderboardHTML(level) +
         '<button class="btn-primary" onclick="window.startGame(' + level + ')">再来一次</button>' +
         '<button class="btn-secondary" onclick="window.goToMainMenu()">回到主界面</button>' +
       '</div>'
@@ -214,6 +244,9 @@ window.Screens = (function () {
     );
   }
 
-  return { showStart: showStart, showDeath: showDeath, showPause: showPause, hide: hide,
-           _setOrientation: _setOrientation, _setSensitivity: _setSensitivity };
+  return {
+    showStart: showStart, showDeath: showDeath, showPause: showPause, hide: hide,
+    _setOrientation: _setOrientation, _setSensitivity: _setSensitivity,
+    _setLeaderboardLevel: _setLeaderboardLevel,
+  };
 })();

@@ -135,11 +135,13 @@
     catch (e) { /* 静默降级 */ }
   }
 
-  function recordScore(score) {
+  function recordScore(score, level) {
     score = Math.floor(Number(score) || 0);
     if (score <= 0) return [];
+    level = level || (STATE && STATE.level) || 1;
+    var boardKey = level === 2 ? 'star_tunnel_scoreboard_l2' : 'star_tunnel_scoreboard';
     var board = [];
-    try { board = JSON.parse(safeGetStorage('star_tunnel_scoreboard', '[]')); } catch (e) { board = []; }
+    try { board = JSON.parse(safeGetStorage(boardKey, '[]')); } catch (e) { board = []; }
     if (!Array.isArray(board)) board = [];
     board.push(score);
     board = board
@@ -147,7 +149,7 @@
       .filter(function (item) { return item > 0; })
       .sort(function (a, b) { return b - a; })
       .slice(0, 10);
-    safeSetStorage('star_tunnel_scoreboard', JSON.stringify(board));
+    safeSetStorage(boardKey, JSON.stringify(board));
     return board;
   }
 
@@ -285,7 +287,7 @@
       safeSetStorage(bestKey, STATE.score);
       bestScore = STATE.score;
     }
-    recordScore(STATE.score);
+    recordScore(STATE.score, STATE.level);
     Screens.showDeath(STATE.score, bestScore, STATE.distance, STATE.elapsedTime, STATE.level);
     HUD.hide();
     if (window.HUD && HUD.setJumpVisible) HUD.setJumpVisible(false);
@@ -707,7 +709,7 @@
       STATE.phase = 'dead';
       var bestKey = STATE.level === 2 ? 'star_tunnel_best_l2' : 'star_tunnel_best';
       var bestScore = parseInt(safeGetStorage(bestKey, '0'));
-      recordScore(STATE.score);
+      recordScore(STATE.score, STATE.level);
       Screens.showDeath(STATE.score, bestScore, STATE.distance, STATE.elapsedTime, STATE.level);
     }
   });
