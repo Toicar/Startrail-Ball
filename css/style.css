@@ -462,6 +462,37 @@ button, input {
   border-color: rgba(232, 118, 255, 0.7);
 }
 
+.hud-dash-alert {
+  position: fixed;
+  left: 50%;
+  top: 18%;
+  min-width: 168px;
+  padding: 9px 18px;
+  transform: translate(-50%, -50%) scale(0.82);
+  opacity: 0;
+  pointer-events: none;
+  color: #061120;
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1;
+  text-align: center;
+  border: 1px solid rgba(255, 245, 158, 0.92);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffe36f, #34f5c5 58%, #57e8ff);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.32) inset,
+    0 0 28px rgba(52, 245, 197, 0.58),
+    0 0 50px rgba(255, 227, 111, 0.34);
+  z-index: 36;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.hud-dash-alert.visible {
+  opacity: 0.95;
+  transform: translate(-50%, -50%) scale(1);
+  animation: dashAlertPulse 0.42s ease-in-out infinite alternate;
+}
+
 .hud-combo {
   min-height: 28px;
   text-align: center;
@@ -526,6 +557,11 @@ button, input {
 @keyframes comboPulse {
   from { filter: brightness(1); }
   to { filter: brightness(1.22); }
+}
+
+@keyframes dashAlertPulse {
+  from { filter: brightness(1); box-shadow: 0 0 22px rgba(52, 245, 197, 0.42), 0 0 42px rgba(255, 227, 111, 0.28); }
+  to { filter: brightness(1.18); box-shadow: 0 0 34px rgba(52, 245, 197, 0.72), 0 0 68px rgba(255, 77, 125, 0.32); }
 }
 
 .toast {

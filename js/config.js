@@ -37,7 +37,7 @@ const CONFIG = {
   ],
   // 道具
   BUFFS: {
-    SPEED_BOOST:  { duration: 3.0,  speedMul: 1.25, maxStacks: 3, dashDuration: 2.0, dashMul: 2.0, stripLength: 5.5 },
+    SPEED_BOOST:  { duration: 3.0,  speedMul: 1.4, maxStacks: 3, dashDuration: 2.0, dashMul: 2.0, dashDecayDuration: 1.5, stripLength: 5.5 },
     MAGNET:       { duration: 5.0,  radius: 9 },
     SHIELD:       { duration: Infinity, hitsBlocked: 1 },
     SCORE_DOUBLE: { duration: 8.0,  multiplier: 2 },

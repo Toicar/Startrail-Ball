@@ -3,7 +3,7 @@ window.HUD = (function () {
   'use strict';
 
   var overlay = document.getElementById('hud-overlay');
-  var speedFill, speedValueEl, scoreValueEl, comboEl, buffsEl, livesEl, boostChipEl, boostLabelEl, boostTimeEl, distanceEl, timeEl;
+  var speedFill, speedValueEl, scoreValueEl, comboEl, buffsEl, livesEl, boostChipEl, boostLabelEl, boostTimeEl, bestValueEl, distanceEl, timeEl, dashAlertEl;
   var floatLayer, comboFloatEl;
   var coinFloatItems = [];
   var projectedPrompt = new THREE.Vector3();
@@ -60,6 +60,7 @@ window.HUD = (function () {
         '<div class="hud-speed-bar"><div id="hud-speed-fill" class="hud-speed-fill" style="width:0%;"></div></div>' +
       '</div>' +
       '<div id="hud-buffs" class="hud-buffs"></div>' +
+      '<div id="hud-dash-alert" class="hud-dash-alert">无敌冲刺</div>' +
       '<div id="hud-combo" class="hud-combo"></div>' +
       '<div id="hud-float-layer" class="hud-float-layer">' +
         '<div id="hud-combo-float" class="hud-combo-float"></div>' +
@@ -74,8 +75,10 @@ window.HUD = (function () {
     boostChipEl = document.getElementById('hud-boost-chip');
     boostLabelEl = document.getElementById('hud-boost-label');
     boostTimeEl = document.getElementById('hud-boost-time');
+    bestValueEl = document.getElementById('hud-best-value');
     distanceEl = document.getElementById('hud-distance-value');
     timeEl = document.getElementById('hud-time-value');
+    dashAlertEl = document.getElementById('hud-dash-alert');
     floatLayer = document.getElementById('hud-float-layer');
     comboFloatEl = document.getElementById('hud-combo-float');
     renderLives(3, 3);
@@ -103,6 +106,15 @@ window.HUD = (function () {
     if (!scoreValueEl) return;
     scoreValueEl.textContent = Math.floor(state.score);
     renderLives(state.lives, state.maxLives);
+    if (bestValueEl) {
+      var storedBest = 0;
+      var liveBest = Math.floor(state.score || 0);
+      try { storedBest = parseInt(localStorage.getItem('star_tunnel_best') || '0', 10) || 0; } catch (e) {}
+      if (liveBest > storedBest) {
+        try { localStorage.setItem('star_tunnel_best', String(liveBest)); } catch (e2) {}
+      }
+      bestValueEl.textContent = Math.max(storedBest, liveBest);
+    }
 
     var maxStacks = CONFIG.BUFFS.SPEED_BOOST.maxStacks || 3;
     var stacks = Math.max(0, Math.min(maxStacks, state.speedBoostStacks || 0));
@@ -120,6 +132,7 @@ window.HUD = (function () {
 
     var buffs = state.activeBuffs;
     var boostTime = buffs.speedBoost || 0;
+    if (dashAlertEl) dashAlertEl.classList.toggle('visible', dashTime > 0);
     if (boostChipEl) {
       boostChipEl.style.display = (boostTime > 0 || dashTime > 0) ? 'inline-flex' : 'none';
       if (boostLabelEl) boostLabelEl.textContent = dashTime > 0 ? 'DASH' : ('BOOST x' + Math.max(1, stacks));

@@ -246,6 +246,7 @@ window.World = (function () {
       mesh: strip,
       type: 'speedBoost',
       z: zCenter,
+      prevZ: zCenter,
       angle: angle,
       collected: false,
       radius: pipeRadius,
@@ -329,11 +330,16 @@ window.World = (function () {
   function checkSpeedBoostCollision(item, ballAngle, ballZ) {
     var laneRadius = item.radius - CONFIG.BALL.RADIUS;
     var lateralDistance = angleDiff(ballAngle, item.angle) * laneRadius;
-    var ballEdgeReach = CONFIG.BALL.RADIUS * 1.25;
+    var ballEdgeReach = CONFIG.BALL.RADIUS * 1.75;
     var halfWidth = item.radius * LANE_HALF_ANGLE + ballEdgeReach;
     if (lateralDistance > halfWidth) return false;
     var halfStrip = item.stripLength / 2;
-    return Math.abs(ballZ - item.z) <= halfStrip + ballEdgeReach;
+    var currentMin = item.z - halfStrip - ballEdgeReach;
+    var currentMax = item.z + halfStrip + ballEdgeReach;
+    var prevZ = item.prevZ === undefined ? item.z : item.prevZ;
+    var sweepMin = Math.min(currentMin, prevZ - halfStrip - ballEdgeReach);
+    var sweepMax = Math.max(currentMax, prevZ + halfStrip + ballEdgeReach);
+    return ballZ >= sweepMin && ballZ <= sweepMax;
   }
 
   function checkCollisions(ballX, ballY, ballZ) {
@@ -351,6 +357,7 @@ window.World = (function () {
       if (item.collected) continue;
 
       if (item.type === 'speedBoost') {
+        if (window.STATE && window.STATE.invincible > 0) continue;
         if (checkSpeedBoostCollision(item, ballAngle, ballZ)) {
           item.collected = true;
           group.remove(item.mesh);
@@ -363,6 +370,7 @@ window.World = (function () {
       item.mesh.getWorldPosition(itemWorldPos);
       var dist = ballWorldPos.distanceTo(itemWorldPos);
       var def = ITEM_DEFS[item.type];
+      if (dashMagnetActive && def && def.hazard) continue;
       var baseRadius = (def ? def.size : 0.5) + CONFIG.BALL.RADIUS + CONFIG.BALL.PICKUP_RANGE;
       var effectiveRadius = baseRadius;
 
@@ -413,6 +421,7 @@ window.World = (function () {
       }
 
       if (item.type === 'speedBoost') {
+        item.prevZ = item.z + delta;
         item.mesh.position.z = item.z;
         var boostOffset = getPipeOffset(item.z);
         item.mesh.position.x = boostOffset.x;

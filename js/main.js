@@ -309,6 +309,7 @@
         break;
 
       case 'speedBoost':
+        if (STATE.invincible > 0) break;
         STATE.speedBoostStacks = Math.min(
           CONFIG.BUFFS.SPEED_BOOST.maxStacks,
           (STATE.speedBoostStacks || 0) + 1
@@ -484,10 +485,20 @@
       // Buff 速度修正
       var speedMultiplier = 1;
       STATE.baseSpeed = baseSpeed;
+      var stackMultiplier = 1;
+      if (STATE.activeBuffs.speedBoost > 0 && STATE.speedBoostStacks > 0) {
+        stackMultiplier = 1 + (CONFIG.BUFFS.SPEED_BOOST.speedMul - 1) * STATE.speedBoostStacks;
+      }
+      var dashMultiplier = stackMultiplier * (CONFIG.BUFFS.SPEED_BOOST.dashMul || 2);
       if (STATE.activeBuffs.dashBoost > 0) {
-        speedMultiplier *= CONFIG.BUFFS.SPEED_BOOST.dashMul || 2;
-      } else if (STATE.activeBuffs.speedBoost > 0 && STATE.speedBoostStacks > 0) {
-        speedMultiplier *= 1 + (CONFIG.BUFFS.SPEED_BOOST.speedMul - 1) * STATE.speedBoostStacks;
+        speedMultiplier = dashMultiplier;
+      } else if (STATE.activeBuffs.dashDecay > 0) {
+        var decayDuration = CONFIG.BUFFS.SPEED_BOOST.dashDecayDuration || 1.5;
+        var decayT = THREE.MathUtils.clamp(STATE.activeBuffs.dashDecay / decayDuration, 0, 1);
+        var decayEase = decayT * decayT * (3 - 2 * decayT);
+        speedMultiplier = stackMultiplier + (dashMultiplier - stackMultiplier) * decayEase;
+      } else {
+        speedMultiplier = stackMultiplier;
       }
 
       var finalSpeed = baseSpeed * speedMultiplier;
@@ -573,6 +584,11 @@
           if (buffKey === 'speedBoost') {
             STATE.speedBoostStacks = 0;
             STATE._boostDashTriggered = false;
+          } else if (buffKey === 'dashBoost') {
+            STATE.activeBuffs.dashDecay = Math.max(
+              STATE.activeBuffs.dashDecay || 0,
+              CONFIG.BUFFS.SPEED_BOOST.dashDecayDuration || 1.5
+            );
           }
         }
       }
