@@ -425,8 +425,14 @@ window.World = (function () {
     }
   }
 
+  function getSpinSpeedScale(speed) {
+    var ref = CONFIG.BALL.BASE_SPEED || 15;
+    return ref / Math.max(speed || ref, 0.1);
+  }
+
   function update(dt, speed) {
     var delta = speed * dt;
+    var spinScale = getSpinSpeedScale(speed);
     for (var i = items.length - 1; i >= 0; i--) {
       var item = items[i];
       if (item.collected) { items.splice(i, 1); continue; }
@@ -448,14 +454,15 @@ window.World = (function () {
 
       if (item.type === 'rotatingBarrier') {
         var t = window.STATE ? window.STATE.elapsedTime : 0;
-        var newAngle = item.baseAngle + t * 0.9 + item.z * 0.175;
+        // z 随前进速度变化会连带加快轨道角速度，按倍率折算以保持视觉转速恒定
+        var newAngle = item.baseAngle + t * 0.9 + item.z * 0.175 * spinScale;
         item.angle = newAngle;
         setLanePosition(item, item.z);
         if (item.mesh.userData && item.mesh.userData.billboard) {
-          item.visualSpin += (ITEM_DEFS[item.type].spin || 2.4) * dt;
+          item.visualSpin += (ITEM_DEFS[item.type].spin || 2.4) * dt * spinScale;
           faceCamera(item.mesh, item.visualSpin);
         } else {
-          item.mesh.rotation.z += 0.04;
+          item.mesh.rotation.z += 0.04 * spinScale;
         }
         continue;
       }

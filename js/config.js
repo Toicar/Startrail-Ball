@@ -10,9 +10,9 @@ const CONFIG = {
   // 球
   BALL: {
     RADIUS: 0.55,
-    BASE_SPEED: 20,
-    MAX_SPEED: 30,
-    AUTO_SPEED_LIMIT: 50,
+    BASE_SPEED: 15,
+    MAX_SPEED: 25,
+    AUTO_SPEED_LIMIT: 40,
     POST_CAP_GAIN_PER_SECOND: 0.008,
     SPEED_RAMP: 0.8,       // 每秒加速量
     TILT_SENSITIVITY: 0.06,
