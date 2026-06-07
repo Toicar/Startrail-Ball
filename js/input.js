@@ -98,6 +98,7 @@ window.Input = (function () {
     orientationMode = mode;
     applyOrientation();
     try { localStorage.setItem('star_tunnel_orientation', mode); } catch (e) {}
+    if (window.resizeGame) setTimeout(window.resizeGame, 0);
   }
 
   function getOrientation() { return orientationMode; }
@@ -113,6 +114,11 @@ window.Input = (function () {
       isLandscape = true;
     } else {
       isLandscape = window.innerWidth > window.innerHeight;
+    }
+    if (document.body) {
+      document.body.classList.toggle('force-landscape', orientationMode === 'landscape');
+      document.body.classList.toggle('force-portrait', orientationMode === 'portrait');
+      document.body.classList.toggle('auto-orientation', orientationMode === 'auto');
     }
   }
 

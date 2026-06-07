@@ -22,6 +22,33 @@ window.Screens = (function () {
     return (window.AssetData && window.AssetData.images && window.AssetData.images[src]) || ('./image/' + src);
   }
 
+  function getScoreBoard() {
+    var raw = [];
+    try { raw = JSON.parse(localStorage.getItem('star_tunnel_scoreboard') || '[]'); } catch (e) { raw = []; }
+    if (!Array.isArray(raw)) raw = [];
+    return raw
+      .map(function (score) { return Math.floor(Number(score) || 0); })
+      .filter(function (score) { return score > 0; })
+      .sort(function (a, b) { return b - a; })
+      .slice(0, 10);
+  }
+
+  function leaderboardHTML() {
+    var scores = getScoreBoard();
+    var rows = '';
+    for (var i = 0; i < 10; i++) {
+      var value = scores[i] || 0;
+      rows += '<li class="' + (value ? '' : 'empty') + '">' +
+        '<span>' + (i + 1) + '</span><strong>' + (value ? value : '--') + '</strong>' +
+      '</li>';
+    }
+    return '' +
+      '<div class="leaderboard-panel">' +
+        '<h3>分数排行榜</h3>' +
+        '<ol>' + rows + '</ol>' +
+      '</div>';
+  }
+
   function itemPreviewHTML() {
     var items = [
       ['item_coin.png', '金币', '基础得分'],
@@ -71,6 +98,7 @@ window.Screens = (function () {
           '<h3>道具效果</h3>' +
           itemPreviewHTML() +
         '</div>' +
+        leaderboardHTML() +
       '</div>';
   }
 
@@ -156,6 +184,7 @@ window.Screens = (function () {
         newBestHTML +
         '<p class="modal-stat">最高分 ' + Math.max(score, bestScore) + '</p>' +
         '<p class="modal-stat-sub">' + Math.floor(distance) + 'm · ' + Math.floor(elapsedTime) + 's</p>' +
+        leaderboardHTML() +
         '<button class="btn-primary" onclick="window.startGame()">再来一次</button>' +
         '<button class="btn-secondary" onclick="window.goToMainMenu()">回到主界面</button>' +
       '</div>'

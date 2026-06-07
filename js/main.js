@@ -87,8 +87,9 @@
 
   // --- 自适应尺寸（竖屏拉远 FOV、横屏收窄）---
   function resize() {
-    var w = window.innerWidth;
-    var h = window.innerHeight;
+    var container = document.getElementById('game-container');
+    var w = (container && container.clientWidth) ? container.clientWidth : window.innerWidth;
+    var h = (container && container.clientHeight) ? container.clientHeight : window.innerHeight;
     renderer.setSize(w, h);
     camera.aspect = w / h;
 
@@ -115,6 +116,7 @@
     camera.updateProjectionMatrix();
     Input.applyOrientation();
   }
+  window.resizeGame = resize;
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', function () { setTimeout(resize, 200); });
   resize();
@@ -127,6 +129,22 @@
   function safeSetStorage(key, val) {
     try { localStorage.setItem(key, val); }
     catch (e) { /* 静默降级 */ }
+  }
+
+  function recordScore(score) {
+    score = Math.floor(Number(score) || 0);
+    if (score <= 0) return [];
+    var board = [];
+    try { board = JSON.parse(safeGetStorage('star_tunnel_scoreboard', '[]')); } catch (e) { board = []; }
+    if (!Array.isArray(board)) board = [];
+    board.push(score);
+    board = board
+      .map(function (item) { return Math.floor(Number(item) || 0); })
+      .filter(function (item) { return item > 0; })
+      .sort(function (a, b) { return b - a; })
+      .slice(0, 10);
+    safeSetStorage('star_tunnel_scoreboard', JSON.stringify(board));
+    return board;
   }
 
   function showToast(msg) {
@@ -262,6 +280,7 @@
       safeSetStorage('star_tunnel_best', STATE.score);
       bestScore = STATE.score;
     }
+    recordScore(STATE.score);
     Screens.showDeath(STATE.score, bestScore, STATE.distance, STATE.elapsedTime);
     HUD.hide();
   }
@@ -555,6 +574,7 @@
     if (STATE.phase === 'playing') {
       STATE.phase = 'dead';
       var bestScore = parseInt(safeGetStorage('star_tunnel_best', '0'));
+      recordScore(STATE.score);
       Screens.showDeath(STATE.score, bestScore, STATE.distance, STATE.elapsedTime);
     }
   });
@@ -565,6 +585,7 @@
   if (window.World) World.init();
   if (window.PipeSystem) PipeSystem.init();
   if (window.Input) Input.init();
+  resize();
   if (window.Effects) Effects.init();
   if (window.HUD) HUD.init();
   if (window.AudioFX) AudioFX.init();

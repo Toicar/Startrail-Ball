@@ -3,7 +3,7 @@ window.HUD = (function () {
   'use strict';
 
   var overlay = document.getElementById('hud-overlay');
-  var speedFill, scoreValueEl, comboEl, buffsEl, livesEl, boostChipEl, boostTimeEl, distanceEl, timeEl;
+  var speedFill, speedValueEl, scoreValueEl, comboEl, buffsEl, livesEl, boostChipEl, boostTimeEl, distanceEl, timeEl;
   var floatLayer, comboFloatEl;
   var coinFloatItems = [];
   var projectedPrompt = new THREE.Vector3();
@@ -36,6 +36,9 @@ window.HUD = (function () {
             icon('item_coin.png', '金币') +
             '<span id="hud-score-value">0</span>' +
           '</div>' +
+          '<div class="hud-chip hud-speed-chip">' +
+            '<span>速度</span><strong id="hud-speed-value">0.0m/s</strong>' +
+          '</div>' +
           '<div id="hud-boost-chip" class="hud-chip hud-boost-chip">' +
             '<span class="hud-buff-text">极速 x2</span>' +
             '<strong id="hud-boost-time">0.0s</strong>' +
@@ -63,6 +66,7 @@ window.HUD = (function () {
       '</div>';
 
     speedFill = document.getElementById('hud-speed-fill');
+    speedValueEl = document.getElementById('hud-speed-value');
     scoreValueEl = document.getElementById('hud-score-value');
     comboEl = document.getElementById('hud-combo');
     buffsEl = document.getElementById('hud-buffs');
@@ -101,6 +105,7 @@ window.HUD = (function () {
 
     var speedPct = Math.max(0, Math.min(100, Math.floor((state.speed / CONFIG.BALL.MAX_SPEED) * 100)));
     speedFill.style.width = speedPct + '%';
+    if (speedValueEl) speedValueEl.textContent = (state.speed || 0).toFixed(1) + 'm/s';
     if (distanceEl) distanceEl.textContent = Math.floor(state.distance) + 'm';
     if (timeEl) timeEl.textContent = formatTime(state.elapsedTime);
 
