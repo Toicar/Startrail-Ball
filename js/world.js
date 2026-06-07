@@ -425,8 +425,9 @@ window.World = (function () {
     }
   }
 
-  function update(dt, speed) {
+  function update(dt, speed, speedMultiplier) {
     var delta = speed * dt;
+    var barrierDelta = speed * dt / Math.max(1, speedMultiplier || 1);
     for (var i = items.length - 1; i >= 0; i--) {
       var item = items[i];
       if (item.collected) { items.splice(i, 1); continue; }
@@ -448,7 +449,9 @@ window.World = (function () {
 
       if (item.type === 'rotatingBarrier') {
         var t = window.STATE ? window.STATE.elapsedTime : 0;
-        var newAngle = item.baseAngle + t * 0.9 + item.z * 0.175;
+        if (item.motionZ === undefined) item.motionZ = item.z;
+        item.motionZ -= barrierDelta;
+        var newAngle = item.baseAngle + t * 0.9 + item.motionZ * 0.175;
         item.angle = newAngle;
         setLanePosition(item, item.z);
         if (item.mesh.userData && item.mesh.userData.billboard) {

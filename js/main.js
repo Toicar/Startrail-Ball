@@ -560,7 +560,7 @@
               handleCollision(collisions[i]);
             }
           }
-          World.update(dt, finalSpeed);
+          World.update(dt, finalSpeed, speedMultiplier);
           World.clearBehind(-15);
         } catch (e) {
           console.error('Collision error:', e);
