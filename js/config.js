@@ -12,6 +12,7 @@ const CONFIG = {
     RADIUS: 0.55,
     BASE_SPEED: 6,
     MAX_SPEED: 22,
+    POST_CAP_GAIN_PER_30S: 0.05,
     SPEED_RAMP: 0.8,       // 每秒加速量
     TILT_SENSITIVITY: 0.06,
     PICKUP_RANGE: 0.6,     // 额外拾取范围

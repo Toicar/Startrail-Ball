@@ -385,6 +385,7 @@
     STATE._pipeFlipZ = 0;
     STATE._lastTunnelFlipAt = -999;
     STATE._tunnelFlip = null;
+    STATE._speedCapStartedAt = null;
     applyTunnelRotation(0);
 
     Input.resetAngle();
@@ -445,7 +446,18 @@
       var diff = getCurrentDifficulty(STATE.elapsedTime);
       STATE.difficultyLevel = diff.index;
       var rampSpeed = CONFIG.BALL.BASE_SPEED + STATE.elapsedTime * CONFIG.BALL.SPEED_RAMP;
-      var baseSpeed = Math.min(rampSpeed * diff.speedMul, CONFIG.BALL.MAX_SPEED);
+      var uncappedBaseSpeed = rampSpeed * diff.speedMul;
+      var baseSpeed = Math.min(uncappedBaseSpeed, CONFIG.BALL.MAX_SPEED);
+      if (uncappedBaseSpeed >= CONFIG.BALL.MAX_SPEED) {
+        if (STATE._speedCapStartedAt === null || STATE._speedCapStartedAt === undefined) {
+          STATE._speedCapStartedAt = STATE.elapsedTime;
+        }
+        var postCapTime = Math.max(0, STATE.elapsedTime - STATE._speedCapStartedAt);
+        var postCapGain = (postCapTime / 30) * (CONFIG.BALL.POST_CAP_GAIN_PER_30S || 0.05);
+        baseSpeed = CONFIG.BALL.MAX_SPEED * (1 + postCapGain);
+      } else {
+        STATE._speedCapStartedAt = null;
+      }
 
       // Buff 速度修正
       var speedMultiplier = 1;

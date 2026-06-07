@@ -37,7 +37,7 @@ window.Physics = (function () {
   }
 
   function getAngle() { return angle; }
-  function setSpeed(s) { currentSpeed = Math.min(s, CONFIG.BALL.MAX_SPEED); }
+  function setSpeed(s) { currentSpeed = Math.max(0, s); }
   function getSpeed() { return currentSpeed; }
   function setAngle(a) { angle = normalizeAngle(a); angularVelocity = 0; }
 
