@@ -680,6 +680,7 @@
         HUD.update(STATE);
         if (HUD.updateFloating) HUD.updateFloating(STATE, Ball.getPosition(), dt);
       }
+      }
     }
 
     var visTime = STATE.elapsedTime || performance.now() * 0.001;
