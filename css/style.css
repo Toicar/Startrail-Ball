@@ -465,14 +465,14 @@ button, input {
 .hud-dash-alert {
   position: fixed;
   left: 50%;
-  top: 18%;
+  top: 24%;
   min-width: 168px;
-  padding: 9px 18px;
+  padding: 8px 16px;
   transform: translate(-50%, -50%) scale(0.82);
   opacity: 0;
   pointer-events: none;
   color: #061120;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 1000;
   line-height: 1;
   text-align: center;
@@ -488,7 +488,7 @@ button, input {
 }
 
 .hud-dash-alert.visible {
-  opacity: 0.95;
+  opacity: 0.88;
   transform: translate(-50%, -50%) scale(1);
   animation: dashAlertPulse 0.42s ease-in-out infinite alternate;
 }
@@ -524,7 +524,7 @@ button, input {
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.86);
   color: #ffe775;
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 1000;
   line-height: 1;
   text-shadow:
@@ -536,7 +536,7 @@ button, input {
 }
 
 .hud-combo-float.visible {
-  opacity: 0.78;
+  opacity: 0.62;
   transform: translate(-50%, -50%) scale(1);
   animation: comboPulse 0.5s ease-in-out infinite alternate;
 }
@@ -544,7 +544,7 @@ button, input {
 .hud-coin-float {
   transform: translate(-50%, -50%);
   color: #ffe45f;
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 900;
   line-height: 1;
   text-shadow:
@@ -1141,6 +1141,35 @@ body.force-landscape .death-card .btn-secondary {
 }
 
 @media (max-width: 760px) {
+  .hud-dash-alert {
+    top: 30%;
+    min-width: 138px;
+    padding: 7px 13px;
+    font-size: 15px;
+  }
+
+  .hud-combo-float {
+    font-size: 18px;
+    text-shadow:
+      0 1px 0 rgba(92, 42, 0, 0.42),
+      0 0 9px rgba(255, 237, 125, 0.72),
+      0 0 20px rgba(255, 85, 124, 0.28);
+    -webkit-text-stroke: 0.5px rgba(86, 44, 4, 0.32);
+  }
+
+  .hud-combo-float.visible {
+    opacity: 0.54;
+  }
+
+  .hud-coin-float {
+    font-size: 16px;
+    text-shadow:
+      0 1px 0 rgba(95, 50, 0, 0.38),
+      0 0 8px rgba(255, 228, 95, 0.72),
+      0 0 16px rgba(255, 181, 41, 0.36);
+    -webkit-text-stroke: 0.5px rgba(82, 43, 0, 0.28);
+  }
+
   #screen-overlay {
     align-items: flex-start;
   }
