@@ -8,6 +8,9 @@ window.PipeSystem = (function () {
   var segmentMaterials = [];
   var edgeRings = [];
   var segmentCreateIndex = 0;
+  var curveDistance = 0;
+  var curveStrength = 0;
+  var curveOffsetTmp = new THREE.Vector2();
   var RING_EVERY_N_SEGMENTS = 5; // 原每段 2 环 → 约 10% 密度
 
   // 星空着色器（内联）
@@ -31,18 +34,12 @@ window.PipeSystem = (function () {
     '  vec3 nebula = mix(uColor1, uColor2, vUv.y);',
     '  nebula += vec3(0.35, 0.08, 0.55) * pow(max(0.0, sin(vUv.x * 6.28 + uTime * 0.15)), 3.0) * 0.25;',
     '  nebula += vec3(0.15, 0.05, 0.35) * pow(max(0.0, cos(vUv.y * 4.0 - uTime * 0.1)), 2.0) * 0.2;',
-    '  float star = step(0.998, random(floor(vUv * 90.0 + uTime * 0.03)));',
-    '  float twinkle = random(vUv + uTime * 0.07) * 0.6 + 0.4;',
-    '  vec3 starColor = vec3(0.9, 0.92, 1.0) * twinkle;',
-    '  float bigStar = step(0.9995, random(floor(vUv * 24.0)));',
-    '  star = max(star, bigStar * 1.8);',
     '  float vertLine = smoothstep(0.93, 1.0, 1.0 - abs(fract(vUv.x * 12.0) - 0.5) * 2.0);',
     '  float horizLine = smoothstep(0.94, 1.0, 1.0 - abs(fract(vUv.y * 0.8) - 0.5) * 2.0);',
     '  float gridLine = max(vertLine, horizLine);',
     '  vec3 gridColor = vec3(0.0, 0.92, 1.0) * gridLine;',
     '  vec3 trackBase = vec3(0.04, 0.12, 0.35);',
-    '  vec3 color = mix(nebula, starColor, star);',
-    '  color = mix(color, trackBase, 0.35);',
+    '  vec3 color = mix(nebula, trackBase, 0.35);',
     '  color += gridColor * 1.26;',
     '  float edge = pow(abs(vUv.y - 0.5) * 2.0, 2.0);',
     '  color += vec3(0.0, 0.7, 1.0) * edge * 0.105;',
@@ -69,10 +66,28 @@ window.PipeSystem = (function () {
     straight:    { radius: 4, curvature: 0, bendAxis: null },
     wide:        { radius: 5.6, curvature: 0, bendAxis: null },
     narrow:      { radius: 2.6, curvature: 0, bendAxis: null },
-    curveLeft:   { radius: 4, curvature: 0.12, bendAxis: 'x' },
-    curveRight:  { radius: 4, curvature: -0.12, bendAxis: 'x' },
-    curveUp:     { radius: 4, curvature: 0.12, bendAxis: 'y' },
+    curveLeft:   { radius: 4, curvature: 0, bendAxis: null },
+    curveRight:  { radius: 4, curvature: 0, bendAxis: null },
+    curveUp:     { radius: 4, curvature: 0, bendAxis: null },
   };
+
+  function getCurveOffsetAt(z) {
+    var far = THREE.MathUtils.smoothstep(z, 10, 54);
+    var phase = curveDistance * 0.018 + z * 0.052;
+    var amp = curveStrength * far;
+    curveOffsetTmp.set(
+      Math.sin(phase) * amp,
+      Math.sin(phase * 0.72 + 1.4) * amp * 0.42
+    );
+    return curveOffsetTmp;
+  }
+
+  function applyCurveToObject(obj, z) {
+    var offset = getCurveOffsetAt(z);
+    obj.position.x = offset.x;
+    obj.position.y = offset.y;
+    obj.position.z = z;
+  }
 
   function selectPattern(difficultyLevel, distance) {
     if (difficultyLevel === 0) return 'straight';
@@ -108,10 +123,7 @@ window.PipeSystem = (function () {
     var geo = new THREE.CylinderGeometry(radius, radius, length, 12, 1, true);
     var mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.z = zOffset;
-    if (curvature && bendAxis) {
-      mesh.rotation[bendAxis] += curvature;
-    }
+    applyCurveToObject(mesh, zOffset);
 
     // 线框叠加（结构线）
     var wireGeo = new THREE.CylinderGeometry(radius * 1.002, radius * 1.002, length, 12, 1, true);
@@ -119,15 +131,10 @@ window.PipeSystem = (function () {
       color: 0x00e5ff,
       wireframe: true,
       transparent: true,
-      opacity: 0.126,
+      opacity: 0.055,
       depthWrite: false,
     });
     var wireframe = new THREE.Mesh(wireGeo, wireMat);
-    wireframe.rotation.x = -Math.PI / 2;
-    wireframe.position.z = zOffset;
-    if (curvature && bendAxis) {
-      wireframe.rotation[bendAxis] += curvature;
-    }
     mesh.add(wireframe);
 
     segmentMaterials.push({ mat: mat, mesh: mesh });
@@ -137,6 +144,7 @@ window.PipeSystem = (function () {
     if (segmentCreateIndex % RING_EVERY_N_SEGMENTS === 0) {
       var ringZ = zOffset + length / 2;
       var ring = createGlowRing(ringZ, radius);
+      applyCurveToObject(ring, ringZ);
       edgeRings.push({ ring: ring, zOffset: ringZ });
       ringGroup.add(ring);
       rings.push(ring);
@@ -151,15 +159,20 @@ window.PipeSystem = (function () {
 
   function init() {
     var radius = CONFIG.PIPE.BASE_RADIUS;
+    curveDistance = 0;
+    curveStrength = 0;
     for (var i = 0; i < CONFIG.PIPE.VISIBLE_SEGMENTS; i++) {
-      var zCenter = i * CONFIG.PIPE.SEGMENT_LENGTH + CONFIG.PIPE.SEGMENT_LENGTH / 2;
+      var zCenter = i * CONFIG.PIPE.SEGMENT_LENGTH;
       var seg = createPipeSegment(zCenter, radius, CONFIG.PIPE.SEGMENT_LENGTH, 0, null);
       segments.push(seg);
       group.add(seg.mesh);
       if (window.World) {
+        var spawnStart = Math.max(2, zCenter - CONFIG.PIPE.SEGMENT_LENGTH / 2);
+        var spawnEnd = zCenter + CONFIG.PIPE.SEGMENT_LENGTH / 2;
+        if (spawnEnd <= spawnStart) continue;
         World.populateSegment(
-          zCenter - CONFIG.PIPE.SEGMENT_LENGTH / 2,
-          zCenter + CONFIG.PIPE.SEGMENT_LENGTH / 2,
+          spawnStart,
+          spawnEnd,
           radius, 0
         );
       }
@@ -171,6 +184,10 @@ window.PipeSystem = (function () {
   }
 
   function update(speed, dt, elapsedTime, difficultyLevel, distance) {
+    curveDistance = distance || 0;
+    var targetCurveStrength = difficultyLevel >= 1 ? Math.min(2.2, 0.8 + difficultyLevel * 0.45) : 0.35;
+    curveStrength += (targetCurveStrength - curveStrength) * Math.min(dt * 0.6, 1);
+
     // 着色器时间
     for (var s = 0; s < segmentMaterials.length; s++) {
       segmentMaterials[s].mat.uniforms.uTime.value = elapsedTime;
@@ -180,13 +197,13 @@ window.PipeSystem = (function () {
     var delta = speed * dt;
     for (var i = 0; i < segments.length; i++) {
       segments[i].zOffset -= delta;
-      segments[i].mesh.position.z = segments[i].zOffset;
+      applyCurveToObject(segments[i].mesh, segments[i].zOffset);
     }
 
     // 移动光环
     for (var r = 0; r < edgeRings.length; r++) {
       edgeRings[r].zOffset -= delta;
-      edgeRings[r].ring.position.z = edgeRings[r].zOffset;
+      applyCurveToObject(edgeRings[r].ring, edgeRings[r].zOffset);
       // 光环渐隐以节省性能
       var dist = Math.abs(edgeRings[r].zOffset);
       edgeRings[r].ring.material.opacity = dist < 30 ? 0.525 : Math.max(0.08, 0.525 - (dist - 30) * 0.01);
@@ -270,6 +287,10 @@ window.PipeSystem = (function () {
   return {
     init: init, update: update,
     getPipeRadiusAt: getPipeRadiusAt, getCurvatureAt: getCurvatureAt,
+    getCurveOffsetAt: function (z) {
+      var offset = getCurveOffsetAt(z);
+      return { x: offset.x, y: offset.y };
+    },
     group: group, ringGroup: ringGroup, segments: segments,
     reset: function () {
       // 释放段资源
@@ -301,6 +322,8 @@ window.PipeSystem = (function () {
       segmentMaterials = [];
       edgeRings = [];
       segmentCreateIndex = 0;
+      curveDistance = 0;
+      curveStrength = 0;
     }
   };
 })();
